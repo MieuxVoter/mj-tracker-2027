@@ -11,9 +11,6 @@ from .plots import (
     plot_comparison_intention,
     export_fig,
 )
-from .utils import (
-    get_candidates,
-)
 from .misc.enums import PollingOrganizations, AggregationMode
 from .smp_data import SMPData
 
@@ -97,7 +94,7 @@ def batch_time_merit_profile(
         si_poll = si.select_polling_organization(poll)
 
         for candidate in si_poll.candidates:
-            temp_df = si_poll.select_candidate(candidate)
+            temp_df = si_poll.select_candidate(candidate).df
 
             if args.time_merit_profile:
                 fig = plot_time_merit_profile(temp_df, source=si_poll.sources_string, sponsor=si_poll.sponsors_string)

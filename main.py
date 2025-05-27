@@ -9,7 +9,7 @@ from mjtracker.batch_figure import (
     batch_ranked_time_merit_profile,
     batch_comparison_intention,
 )
-from mjtracker.batch_plots import batch_merit_profile as bmp, batch_ranking as br
+from mjtracker.batch_plots import batch_merit_profile as bmp, batch_ranking as br, batch_time_merit_profile as btmp
 from mjtracker.smp_data import SMPData
 from mjtracker.misc.enums import AggregationMode, PollingOrganizations, UntilRound
 from mjtracker import SurveysInterface
@@ -43,13 +43,13 @@ def main(args: Arguments):
     si.apply_mj()
     df = si.df
 
-    # # generate merit profile figures
-    bmp(si, args, auto_text=False)
-    # batch_merit_profile(df, args)
-    br(si, args, on_rolling_data=False)
+    # bmp(si, args, auto_text=False)
+    # br(si, args, on_rolling_data=False)
+    btmp(si, args, aggregation_mode, polls=PollingOrganizations.ALL)
+
     if not args.test:
         # generate ranking figures
-        batch_ranking(df, args)
+        # batch_ranking(df, args)
         #     # # generate comparison ranking figures
         #     batch_comparison_ranking(df, smp_data, args)
         #     # # # generate time merit profile figures
