@@ -363,3 +363,10 @@ class SurveyInterface:
     @cached_property
     def candidates(self):
         return self.df["candidate"].unique()
+
+    def select_candidate(self, candidate: str) -> pd.DataFrame:
+        """Returns a SurveyInterface for a specific candidate."""
+        if candidate not in self.candidates:
+            raise ValueError(f"Candidate '{candidate}' not found in the survey.")
+        return self.df[self.df["candidate"] == candidate].copy
+

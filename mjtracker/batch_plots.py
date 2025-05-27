@@ -70,58 +70,23 @@ def batch_ranking(si: SurveysInterface, args, on_rolling_data: bool = False):
             print(filename)
             export_fig(fig, args, filename)
 
+
 def batch_comparison_ranking(si: SurveysInterface, smp_data: SMPData, args, on_rolling_data: bool = False):
     for poll in PollingOrganizations:
         si_poll = si.select_polling_organization(poll)
 
         if args.comparison_ranking_plot:
             fig = comparison_ranking_plot(
-                si_poll.df,
-                smp_data=smp_data,
-                source=si.sources_string,
-                on_rolling_data=on_rolling_data
+                si_poll.df, smp_data=smp_data, source=si.sources_string, on_rolling_data=on_rolling_data
             )
             roll = "_roll" if on_rolling_data else ""
             filename = f"comparison_ranking_plot_{poll.name}{roll}"
             print(filename)
             export_fig(fig, args, filename)
 
-# todo to pursue.
-def batch_time_merit_profile(df, args, aggregation, polls: PollingOrganizations = PollingOrganizations):
-    # check if polls is iterable
-    if not isinstance(polls, Iterable):
-        polls = [polls]
-    for poll in polls:
-        if poll == PollingOrganizations.ALL and aggregation == AggregationMode.NO_AGGREGATION:
-            continue
-        df_poll = df[df["institut"] == poll.value].copy() if poll != PollingOrganizations.ALL else df.copy()
-        first_idx = df_poll.first_valid_index()
-        source = poll.value
-        label = source if poll != PollingOrganizations.ALL else poll.name
-        sponsor = df_poll["commanditaire"].loc[first_idx] if poll != PollingOrganizations.ALL else None
-        aggregation_label = f"_{aggregation.name}" if aggregation != AggregationMode.NO_AGGREGATION else ""
 
-        for c in get_candidates(df):
-            temp_df = df_poll[df_poll["candidate"] == c]
-            if temp_df.empty:
-                continue
-            if args.time_merit_profile:
-                fig = plot_time_merit_profile(temp_df, source=source, sponsor=sponsor)
-                filename = f"time_merit_profile{aggregation_label}_{c}_{label}"
-                print(filename)
-                export_fig(fig, args, filename)
-
-    for c in get_candidates(df):
-        temp_df = df[df["candidate"] == c]
-        if args.time_merit_profile:
-            fig = plot_time_merit_profile_all_polls(temp_df, aggregation)
-            filename = f"time_merit_profile_comparison{aggregation_label}_{c}"
-            print(filename)
-            export_fig(fig, args, filename)
-
-
-def batch_ranked_time_merit_profile(
-    df, args, aggregation, polls: PollingOrganizations = PollingOrganizations, on_rolling_data: bool = False
+def batch_time_merit_profile(
+    si: SurveysInterface, args, aggregation, polls: PollingOrganizations = PollingOrganizations
 ):
     # check if polls is iterable
     if not isinstance(polls, Iterable):
@@ -129,29 +94,60 @@ def batch_ranked_time_merit_profile(
     for poll in polls:
         if poll == PollingOrganizations.ALL and aggregation == AggregationMode.NO_AGGREGATION:
             continue
-        df_poll = df[df["institut"] == poll.value].copy() if poll != PollingOrganizations.ALL else df.copy()
+        si_poll = si.select_polling_organization(poll)
 
-        if df_poll.empty:
+        for candidate in si_poll.candidates:
+            temp_df = si_poll.select_candidate(candidate)
+
+            if args.time_merit_profile:
+                fig = plot_time_merit_profile(temp_df, source=si_poll.sources_string, sponsor=si_poll.sponsors_string)
+                filename = f"time_merit_profile{aggregation.string_label}_{candidate}_{si_poll.sources_string}"
+                print(filename)
+                export_fig(fig, args, filename)
+
+    for candidate in si.candidates:
+        temp_df = si.select_candidate(candidate).df
+        if args.time_merit_profile:
+            fig = plot_time_merit_profile_all_polls(temp_df, aggregation)
+            filename = f"time_merit_profile_comparison{aggregation.string_label}_{candidate}"
+            print(filename)
+            export_fig(fig, args, filename)
+
+
+def batch_ranked_time_merit_profile(
+    si: SurveysInterface,
+    args,
+    aggregation,
+    polls: PollingOrganizations = PollingOrganizations,
+    on_rolling_data: bool = False,
+):
+    if not isinstance(polls, Iterable):
+        polls = [polls]
+    for poll in polls:
+        if poll == PollingOrganizations.ALL and aggregation == AggregationMode.NO_AGGREGATION:
+            continue
+        si_poll = si.select_polling_organization(poll)
+
+        if si_poll.df.empty:
             continue
 
-        first_idx = df_poll.first_valid_index()
-        source = poll.value
-        label = source if poll != PollingOrganizations.ALL else poll.name
-        sponsor = df_poll["commanditaire"].loc[first_idx] if poll != PollingOrganizations.ALL else None
-        aggregation_label = f"_{aggregation.name}" if aggregation != AggregationMode.NO_AGGREGATION else ""
         roll = "_roll" if on_rolling_data else ""
 
         if args.ranked_time_merit_profile:
             fig = plot_ranked_time_merit_profile(
-                df_poll, source=source, sponsor=sponsor, show_no_opinion=True, on_rolling_data=on_rolling_data
+                si_poll.df,
+                source=si_poll.sources_string,
+                sponsor=si_poll.sponsors_string,
+                show_no_opinion=True,
+                on_rolling_data=on_rolling_data,
             )
-            filename = f"ranked_time_merit_profile{aggregation_label}_{label}{roll}"
+            filename = f"ranked_time_merit_profile{aggregation.string_label}_{si_poll.sources_string}{roll}"
             print(filename)
             export_fig(fig, args, filename)
 
 
 def batch_comparison_intention(
-    df,
+    si: SurveysInterface,
     smp_data: SMPData,
     args,
     aggregation,
@@ -161,49 +157,41 @@ def batch_comparison_intention(
     for poll in polls:
         if poll == PollingOrganizations.ALL and aggregation == AggregationMode.NO_AGGREGATION:
             continue
-        df_poll = df[df["nom_institut"] == poll.value].copy() if poll != PollingOrganizations.ALL else df.copy()
-        first_idx = df_poll.first_valid_index()
-        source = poll.value
-        label = source if poll != PollingOrganizations.ALL else poll.name
-        sponsor = df_poll["commanditaire"].loc[first_idx] if poll != PollingOrganizations.ALL else None
-        aggregation_label = f"_{aggregation.name}" if aggregation != AggregationMode.NO_AGGREGATION else ""
 
-        if df_poll.empty:
+        si_poll = si.select_polling_organization(poll)
+
+        if si_poll.df.empty:
             continue
         if args.comparison_intention:
-            for c in get_candidates(df_poll):
-                temp_df = df_poll[df_poll["candidat"] == c]
+            for candidate in si_poll.candidates:
+                temp_df = si_poll.select_candidate(candidate).df
                 fig = plot_comparison_intention(
                     temp_df,
                     smp_data=smp_data,
-                    source=source,
-                    sponsor=sponsor,
+                    source=si_poll.sources_string,
+                    sponsor=si_poll.sponsors_string,
                     on_rolling_data=on_rolling_data,
                 )
-                filename = f"intention_{label}{aggregation_label}_{c}"
+                filename = f"intention_{aggregation.string_label}_{candidate}_{si_poll.sources_string}"
                 print(filename)
                 export_fig(fig, args, filename)
 
 
-def batch_time_merit_profile_all(df, args, aggregation, on_rolling_data: bool = False):
+def batch_time_merit_profile_all(si: SurveysInterface, args, aggregation, on_rolling_data: bool = False):
     if aggregation == AggregationMode.NO_AGGREGATION:
         raise ValueError("Need to have an AggregationMode such as FOUR_MENTION to make it work.")
 
-    poll = PollingOrganizations.ALL
-    df_poll = df
-    first_idx = df_poll.first_valid_index()
-    source = poll.value
-    label = poll.name
-    sponsor = None
-    aggregation_label = f"_{aggregation.name}"
     roll = "_roll" if on_rolling_data else ""
 
-    for c in get_candidates(df):
-        temp_df = df_poll[df_poll["candidat"] == c]
+    for candidate in si.candidates:
+        si_candidate = si.select_candidate(candidate)
+        temp_df = si_candidate.df
         if temp_df.empty:
             continue
         if args.time_merit_profile:
-            fig = plot_time_merit_profile(temp_df, source=source, sponsor=sponsor, on_rolling_data=on_rolling_data)
-            filename = f"time_merit_profile{aggregation_label}_{c}_{label}{roll}"
+            fig = plot_time_merit_profile(
+                temp_df, source=si.sources_string, sponsor=None, on_rolling_data=on_rolling_data
+            )
+            filename = f"time_merit_profile{aggregation.string_label}_{candidate}{roll}"
             print(filename)
             export_fig(fig, args, filename)

@@ -77,6 +77,16 @@ class AggregationMode(Enum):
         elif self == self.FOUR_MENTIONS:
             return 4
 
+    @property
+    def string_label(self):
+        """
+        Get the string label of the aggregation mode.
+        """
+        if self == self.NO_AGGREGATION:
+            return ""
+        else:
+            return f"_{self.name.lower()}"
+
 
 class PollingOrganizations(Enum):
     """

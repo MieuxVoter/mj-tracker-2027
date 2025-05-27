@@ -89,6 +89,11 @@ class SurveysInterface:
         df_filtered = self.df[self.df["institut"] == polling_organization.value].copy()
         return SurveysInterface(df=df_filtered)
 
+    def select_candidate(self, candidate: str) -> "SurveysInterface":
+        """Select surveys for a specific candidate."""
+        df_filtered = self.df[self.df["candidate"] == candidate].copy()
+        return SurveysInterface(df=df_filtered)
+
     def to_no_opinion_surveys(self):
         """Convert all surveys to surveys removing the no opinion grades, and renormalizing the other grades"""
         all_df = [
