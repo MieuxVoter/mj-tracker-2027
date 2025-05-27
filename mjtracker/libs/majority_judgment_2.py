@@ -49,7 +49,7 @@ def majority_judgment(data: Dict[str, List[Union[int, float]]] = None, reverse: 
     # as written by Fabre in fact it is just necessary to compare the modified note
     ranking = {x[0]: i + 1 for i, x in enumerate(bests)}
 
-    print(median_grades, majority)
+    # print(median_grades, majority)
 
     return ranking, median_grades
 

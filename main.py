@@ -9,9 +9,9 @@ from mjtracker.batch_figure import (
     batch_ranked_time_merit_profile,
     batch_comparison_intention,
 )
-from mjtracker.load_surveys import load_surveys
+from mjtracker.batch_plots import batch_merit_profile as bmp, batch_ranking as br
 from mjtracker.smp_data import SMPData
-from mjtracker.misc.enums import Candidacy, AggregationMode, PollingOrganizations, UntilRound
+from mjtracker.misc.enums import AggregationMode, PollingOrganizations, UntilRound
 from mjtracker import SurveysInterface
 
 
@@ -37,25 +37,18 @@ def main(args: Arguments):
 
     si = SurveysInterface.load(
         args.csv,
-        # no_opinion_mode=True,  # not working yet
-        # no_opinion_mode=False,
-        # candidates=Candidacy.ALL_CURRENT_CANDIDATES,
         polling_organization=PollingOrganizations.IPSOS,
-        # until_round=UntilRound.FIRST,
-        # rolling_data=False,
     )
     si.to_no_opinion_surveys()
     si.apply_mj()
     df = si.df
-    # si.aggregate(aggregation_mode)
 
-    # df = apply_mj(si.df, rolling_mj=False, official_lib=False)
     # # generate merit profile figures
-    # df.to_csv("mj_dataset.csv", index=False)
-    batch_merit_profile(df, args)
+    bmp(si, args, auto_text=False)
+    # batch_merit_profile(df, args)
+    br(si, args, on_rolling_data=False)
     if not args.test:
-        #     # pass
-        #     # generate ranking figures
+        # generate ranking figures
         batch_ranking(df, args)
         #     # # generate comparison ranking figures
         #     batch_comparison_ranking(df, smp_data, args)

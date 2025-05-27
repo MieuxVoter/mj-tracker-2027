@@ -1,10 +1,4 @@
-from typing import List
-from operator import itemgetter
-
 import numpy as np
-from pandas import DataFrame
-from .utils import get_grades, get_list_survey
-from .libs.majority_judgment_2 import majority_judgment as mj
 
 # from .libs.majority_judgment import majority_judgment as mj
 

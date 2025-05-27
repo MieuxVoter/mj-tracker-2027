@@ -54,8 +54,40 @@ class SurveysInterface:
     def nb_surveys(self):
         return len(self.surveys)
 
+    @cached_property
+    def candidates(self) -> list[str]:
+        """Get the list of candidates in the surveys."""
+        return self.df["candidate"].unique()
+
+    @cached_property
+    def sponsors(self) -> list[str]:
+        """Get the list of sponsors in the surveys."""
+        return self.df["commanditaire"].unique()
+
+    @cached_property
+    def sources(self) -> list[str]:
+        """Get the list of sources in the surveys."""
+        return self.df["institut"].unique()
+
+    @cached_property
+    def sponsors_string(self) -> str:
+        """Get the string of sponsors in the surveys."""
+        return ", ".join(self.sponsors)
+
+    @cached_property
+    def sources_string(self) -> str:
+        """Get the string of sources in the surveys."""
+        return ", ".join(self.sources)
+
     def select_survey(self, survey_id) -> SurveyInterface:
         return SurveyInterface(self.df[self.df["poll_id"] == survey_id].copy())
+
+    def select_polling_organization(self, polling_organization: PollingOrganizations) -> "SurveysInterface":
+        """Select surveys from a specific polling organization."""
+        if polling_organization == PollingOrganizations.ALL:
+            return self
+        df_filtered = self.df[self.df["institut"] == polling_organization.value].copy()
+        return SurveysInterface(df=df_filtered)
 
     def to_no_opinion_surveys(self):
         """Convert all surveys to surveys removing the no opinion grades, and renormalizing the other grades"""
@@ -73,14 +105,10 @@ class SurveysInterface:
         ]
         self.df = pd.concat([df for df in all_df], ignore_index=True)
 
-    def filter(self):
-        """
-        Filter the dataframe according to the candidates and polling organization
-        """
-        # verify if the number of grade is the same for each survey
+    def _check_nb_grades(self):
+        """Check that the number of grades is the same for all surveys."""
         nb_grades = []
         for s in self.surveys:
-            # only the chosen survey
             df_survey = self.df[self.df["poll_id"] == s].copy()
             nb_grades.append(df_survey["nombre_mentions"].unique()[0])
             if len(list(set(nb_grades))) != 1:
@@ -88,6 +116,12 @@ class SurveysInterface:
                     "The number of grade should be the same for all surveys. Please aggregate grades"
                     "or use data from the same kind of polls"
                 )
+
+    def filter(self):
+        """
+        Filter the dataframe according to the candidates and polling organization
+        """
+        self._check_nb_grades()
         # new cols to store the data (rolling mean, std)
         intentions_col = SurveyInterface(self.df[self.df["poll_id"] == s])._intentions_colheaders
         intentions_col_std = [f"{col}_std" for col in intentions_col]

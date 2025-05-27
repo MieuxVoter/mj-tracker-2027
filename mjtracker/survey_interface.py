@@ -11,7 +11,9 @@ import pandas as pd
 from .misc.enums import AggregationMode
 from .constants import NO_OPINION_GRADES
 from .utils import check_sum_intentions
-from .interface_mj import set_dictionary, mj, interface_to_official_lib, get_grades
+from .interface_mj import interface_to_official_lib
+from .libs.majority_judgment_2 import majority_judgment as mj
+
 
 # Get the path to the current script
 CURRENT_SCRIPT_PATH = Path(__file__).parent
@@ -54,12 +56,28 @@ class SurveyInterface:
 
     @cached_property
     def nb_grades(self) -> int:
-        print(self.df["nombre_mentions"].unique())
         return int(self.df["nombre_mentions"].unique()[0])
 
     @cached_property
     def nb_candidates(self) -> int:
         return len(self.df["candidate"].unique())
+
+    @cached_property
+    def source(self) -> str:
+        return self.df["institut"].loc[self.df.first_valid_index()]
+
+    @cached_property
+    def sponsor(self) -> str:
+        return self.df["commanditaire"].loc[self.df.first_valid_index()]
+
+    @cached_property
+    def end_date(self) -> str:
+        return self.df["end_date"].loc[self.df.first_valid_index()]
+
+    @cached_property
+    def grades(self) -> list[str]:
+        """Returns the list of grades used in the survey. taken from the first row of the dataframe."""
+        return self.df.iloc[0][self._grades_colheaders].tolist()
 
     @cached_property
     def _intentions_colheaders(self):

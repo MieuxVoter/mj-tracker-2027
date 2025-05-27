@@ -321,7 +321,7 @@ def plot_animated_merit_profile(
         df_animation = pd.concat([df_animation, df_temp])
 
     # compute the list sorted of candidat names to order y axis.
-    candidat_list = list(df["candidat"])
+    candidat_list = list(df["candidate"])
     rank_list = list(df["rang"] - 1)
     sorted_candidat_list = [i[1] for i in sorted(zip(rank_list, candidat_list))]
     r_sorted_candidat_list = sorted_candidat_list.copy()
@@ -334,11 +334,11 @@ def plot_animated_merit_profile(
     fig = px.bar(
         df_animation,
         x=grades,
-        y="candidat",
+        y="candidate",
         orientation="h",
         color_discrete_map=color_dict,
         animation_frame="animation_sequence",
-        animation_group="candidat",
+        animation_group="candidate",
     )
 
     # animate smooth transition of 0.5 seconds
@@ -378,7 +378,7 @@ def plot_animated_merit_profile(
     # Add sans opinion to y tick label # todo : it may be simplified !
     if show_no_opinion and not np.isnan(df["sans_opinion"].unique()[0]):
         df["candidat_sans_opinion"] = None
-        for ii, cell in enumerate(df["candidat"]):
+        for ii, cell in enumerate(df["candidate"]):
             df["candidat_sans_opinion"].iat[ii] = (
                 "<b>" + cell + "</b>" + "     <br><i>(sans opinion " + str(df["sans_opinion"].iloc[ii]) + "%)</i>     "
             )
