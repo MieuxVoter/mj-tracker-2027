@@ -43,19 +43,19 @@ def main(args: Arguments):
     si.apply_mj()
     df = si.df
 
-    # bmp(si, args, auto_text=False)
+    bmp(si, args, auto_text=False)
     # br(si, args, on_rolling_data=False)
-    btmp(si, args, aggregation_mode, polls=PollingOrganizations.ALL)
+    # btmp(si, args, aggregation_mode, polls=PollingOrganizations.ALL)
 
-    if not args.test:
-        # generate ranking figures
-        # batch_ranking(df, args)
-        #     # # generate comparison ranking figures
-        #     batch_comparison_ranking(df, smp_data, args)
-        #     # # # generate time merit profile figures
-        batch_time_merit_profile(df, args, aggregation_mode, polls=PollingOrganizations.ALL)
-        # # # generate ranked time merit profile figures
-        batch_ranked_time_merit_profile(df, args, aggregation_mode, polls=PollingOrganizations.IPSOS)
+    # if not args.test:
+    # generate ranking figures
+    # batch_ranking(df, args)
+    #     # # generate comparison ranking figures
+    #     batch_comparison_ranking(df, smp_data, args)
+    #     # # # generate time merit profile figures
+    # batch_time_merit_profile(df, args, aggregation_mode, polls=PollingOrganizations.ALL)
+    # # # generate ranked time merit profile figures
+    # batch_ranked_time_merit_profile(df, args, aggregation_mode, polls=PollingOrganizations.IPSOS)
     #     # batch_ranked_time_merit_profile(df, args, aggregation_mode, polls=PollingOrganizations.ALL)
     #     # # comparison uninominal per candidates
     # batch_comparison_intention(df, smp_data, args, aggregation)

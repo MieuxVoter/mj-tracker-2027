@@ -362,7 +362,35 @@ class SurveyInterface:
 
     @cached_property
     def candidates(self):
-        return self.df["candidate"].unique()
+        return self.df["candidate"].to_list()
+
+    @cached_property
+    def ranked_candidates(self) -> list[str]:
+        """Returns a list of candidates sorted by their rank."""
+        if "rang" not in self.df.columns:
+            raise ValueError(
+                "The DataFrame does not contain a 'rang' column. "
+                "Please apply majority judgment first by calling method apply_mj()."
+            )
+        sorted_df = self.df.sort_values(by="rang", na_position="last")  # Handle NAs in rank
+        return list(sorted_df["candidate"])
+
+    def formated_ranked_candidates(self, show_no_opinion: bool = False) -> list[str]:
+        """Returns a list of candidates sorted by their rank formatted for plots"""
+        has_no_opinion_col = "sans_opinion" in self.df.columns
+        if has_no_opinion_col and show_no_opinion and not np.isnan(self.df["sans_opinion"].unique()[0]):
+            sorted_df = self.df.sort_values(by="rang", na_position="last")  # Handle NAs in rank
+            return [
+                "<b>"
+                + s
+                + "</b>"
+                + "     <br><i>(sans opinion "
+                + str(sorted_df[sorted_df["candidate"] == s]["sans_opinion"].iloc[0])
+                + "%)</i>     "
+                for s in self.ranked_candidates
+            ]
+        else:
+            return ["<b>" + s + "</b>" + "     " for s in self.ranked_candidates]
 
     def select_candidate(self, candidate: str) -> pd.DataFrame:
         """Returns a SurveyInterface for a specific candidate."""

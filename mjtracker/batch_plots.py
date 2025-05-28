@@ -11,6 +11,7 @@ from .plots import (
     plot_comparison_intention,
     export_fig,
 )
+from .plots_v2 import plot_merit_profiles as pmp
 from .misc.enums import PollingOrganizations, AggregationMode
 from .smp_data import SMPData
 
@@ -33,13 +34,9 @@ def batch_merit_profile(si: SurveysInterface, args, auto_text: bool = False):
         si_survey = si.select_survey(survey_id)
 
         if args.merit_profiles:
-            fig = plot_merit_profiles(
-                df=si_survey.df,
-                grades=si_survey.grades,
+            fig = pmp(
+                si=si_survey,
                 auto_text=auto_text,
-                source=si_survey.source,
-                date=si_survey.end_date,
-                sponsor=si_survey.sponsor,
                 show_no_opinion=True,
             )
             filename = f"{survey_id}"
