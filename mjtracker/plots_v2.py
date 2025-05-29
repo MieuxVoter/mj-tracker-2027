@@ -11,6 +11,7 @@ from .smp_data import SMPData
 from .utils import get_intentions_colheaders, get_candidates, get_grades, rank2str
 from .misc.enums import PollingOrganizations, AggregationMode
 from .constants import CANDIDATS
+from .color_utils import get_grade_color_palette
 
 
 def plot_merit_profiles(
@@ -20,10 +21,11 @@ def plot_merit_profiles(
     show_no_opinion: bool = True,
 ) -> go.Figure:
 
-    grades = si.grades
-    sponsor = si.sponsor
+    # colors = color_palette(palette="coolwarm", n_colors=si.nb_grades)
 
-    colors = color_palette(palette="coolwarm", n_colors=si.nb_grades)
+    colors = get_grade_color_palette(si.nb_grades)
+    colors.reverse()
+
     color_dict = {f"intention_mention_{i + 1}": f"rgb{str(colors[i])}" for i in range(si.nb_grades)}
     fig = px.bar(
         si.df.copy().sort_values(by="rang", ascending=False, na_position="last"),
@@ -37,6 +39,7 @@ def plot_merit_profiles(
     fig.update_traces(textfont_size=font_size, textangle=0, textposition="auto", cliponaxis=False, width=0.5)
 
     # replace variable names with grades
+    grades = si.grades
     new_names = {f"intention_mention_{i + 1}": grades[i] for i in range(si.nb_grades)}
     fig.for_each_trace(
         lambda t: t.update(
@@ -65,7 +68,7 @@ def plot_merit_profiles(
     # xticks and y ticks
     yticktext = si.formated_ranked_candidates(show_no_opinion)
     yticktext.reverse()
-    ycategoryarray = si.candidates
+    ycategoryarray = si.ranked_candidates
     ycategoryarray.reverse()
     fig.update_layout(
         xaxis=dict(
@@ -90,13 +93,16 @@ def plot_merit_profiles(
         ),
     )
 
-    # Title and detailed
+    # Title
+    title = "<b>Evaluation au jugement majoritaire</b>"
+
     date_str = f"date: {si.end_date}, " if si.end_date is not None else ""
     source_str = f"source: {si.source}" if si.source is not None else ""
-    source_str += ", " if sponsor is not None else ""
-    sponsor_str = f"commanditaire: {sponsor}" if sponsor is not None else ""
-    title = "<b>Evaluation au jugement majoritaire</b> <br>" + f"<i>{date_str}{source_str}{sponsor_str}</i>"
-    fig.update_layout(title=title, title_x=0.5)
+    source_str += ", " if si.sponsor is not None else ""
+    sponsor_str = f"commanditaire: {si.sponsor}" if si.sponsor is not None else ""
+    subtitle = f"<br><i>{date_str}{source_str}{sponsor_str}</i>"
+
+    fig.update_layout(title=title + subtitle, title_x=0.5)
 
     # font family
     fig.update_layout(font_family="arial")
@@ -110,35 +116,21 @@ def plot_merit_profiles(
 
 
 def plot_merit_profiles_in_number(
-    df: DataFrame,
-    grades: list,
+    si: SurveyInterface,
     auto_text: bool = True,
     font_size: int = 20,
-    date: str = None,
-    sponsor: str = None,
-    source: str = None,
     show_no_opinion: bool = True,
 ) -> go.Figure:
-    df = df.copy()
 
-    nb_grades = len(grades)
+    # colors = color_palette(palette="coolwarm", n_colors=si.nb_grades)
+    colors = get_grade_color_palette(si.nb_grades)
+    colors.reverse()
 
-    # compute the list sorted of candidat names to order y axis.
-    candidat_list = list(df["candidat"])
-    rank_list = list(df["rang"] - 1)
-    sorted_candidat_list = [i[1] for i in sorted(zip(rank_list, candidat_list))]
-    r_sorted_candidat_list = sorted_candidat_list.copy()
-    r_sorted_candidat_list.reverse()
-
-    # colors = color_palette(palette="coolwarm", n_colors=nb_grades)
-    # Gold, Silver, Bronze, No Medal
-    colors_olympics = [(255, 215, 0), (192, 192, 192), (205, 127, 50), (139, 69, 19)]
-    colors = colors_olympics
-    color_dict = {f"intention_mention_{i + 1}": f"rgb{str(colors[i])}" for i in range(nb_grades)}
+    color_dict = {f"intention_mention_{i + 1}": f"rgb{str(colors[i])}" for i in range(si.nb_grades)}
     fig = px.bar(
-        df,
-        x=get_intentions_colheaders(df, nb_grades),
-        y="candidat",
+        si.df.copy().sort_values(by="rang", ascending=False, na_position="last"),
+        x=si._intentions_colheaders,
+        y="candidate",
         orientation="h",
         text_auto=auto_text,
         color_discrete_map=color_dict,
@@ -147,7 +139,8 @@ def plot_merit_profiles_in_number(
     fig.update_traces(textfont_size=font_size, textangle=0, textposition="auto", cliponaxis=False, width=0.5)
 
     # replace variable names with grades
-    new_names = {f"intention_mention_{i + 1}": grades[i] for i in range(nb_grades)}
+    grades = si.grades
+    new_names = {f"intention_mention_{i + 1}": grades[i] for i in range(si.nb_grades)}
     fig.for_each_trace(
         lambda t: t.update(
             name=new_names[t.name],
@@ -157,7 +150,7 @@ def plot_merit_profiles_in_number(
     )
 
     # vertical line
-    sum_of_intentions = df[get_intentions_colheaders(df, nb_grades)].sum(axis=1).max()
+    sum_of_intentions = si.df[si._intentions_colheaders].sum(axis=1).max()
     fig.add_vline(x=sum_of_intentions / 2, line_width=2, line_color="black")
 
     # Legend
@@ -174,24 +167,10 @@ def plot_merit_profiles_in_number(
     fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
 
     # xticks and y ticks
-    # Add sans opinion to y tick label # todo : it may be simplified !
-    if show_no_opinion and not np.isnan(df["sans_opinion"].unique()[0]):
-        df["candidat_sans_opinion"] = None
-        for ii, cell in enumerate(df["candidat"]):
-            df["candidat_sans_opinion"].iat[ii] = (
-                "<b>" + cell + "</b>" + "     <br><i>(sans opinion " + str(df["sans_opinion"].iloc[ii]) + "%)</i>     "
-            )
-        # compute the list sorted of candidat names to order y axis.
-        candidat_list = list(df["candidat_sans_opinion"])
-        rank_list = list(df["rang"] - 1)
-        sorted_candidat_list = [i[1] for i in sorted(zip(rank_list, candidat_list))]
-        r_sorted_candidat_no_opinion_list = sorted_candidat_list.copy()
-        r_sorted_candidat_no_opinion_list.reverse()
-        yticktext = r_sorted_candidat_no_opinion_list
-    else:
-        yticktext = ["<b>" + s + "</b>" + "     " for s in si.ranked_candidates.reverse()]
-
-    # xticks and y ticks
+    yticktext = si.formated_ranked_candidates(show_no_opinion)
+    yticktext.reverse()
+    ycategoryarray = si.ranked_candidates
+    ycategoryarray.reverse()
     fig.update_layout(
         xaxis=dict(
             # range=[0, 100],
@@ -199,30 +178,32 @@ def plot_merit_profiles_in_number(
             # tickvals=[0, 20, 40, 60, 80, 100],
             # ticktext=["0%", "20%", "40%", "60%", "80%", "100%"],
             # tickfont_size=font_size,
-            title="",  # intentions
+            title="",
         ),
         yaxis=dict(
             tickfont_size=font_size * 0.75,
-            title="",  # candidat
+            title="",
             automargin=True,
             ticklabelposition="outside left",
             ticksuffix="   ",
             tickmode="array",
-            tickvals=[i for i in range(len(df))],
+            tickvals=[i for i in range(si.nb_candidates)],
             ticktext=yticktext,
             categoryorder="array",
-            categoryarray=r_sorted_candidat_list,
-        ),  # space
+            categoryarray=ycategoryarray,
+        ),
     )
 
-    # Title and detailed
+    # Title
+    title = "<b>Evaluation au jugement majoritaire</b>"
 
-    date_str = f"date: {date}, " if date is not None else ""
-    source_str = f"source: {source}" if source is not None else ""
-    source_str += ", " if sponsor is not None else ""
-    sponsor_str = f"commanditaire: {sponsor}" if sponsor is not None else ""
-    title = "<b>Evaluation au jugement majoritaire</b> <br>" + f"<i>{date_str}{source_str}{sponsor_str}</i>"
-    fig.update_layout(title=title, title_x=0.5)
+    date_str = f"date: {si.end_date}, " if si.end_date is not None else ""
+    source_str = f"source: {si.source}" if si.source is not None else ""
+    source_str += ", " if si.sponsor is not None else ""
+    sponsor_str = f"commanditaire: {si.sponsor}" if si.sponsor is not None else ""
+    subtitle = f"<br><i>{date_str}{source_str}{sponsor_str}</i>"
+
+    fig.update_layout(title=title + subtitle, title_x=0.5)
 
     # font family
     fig.update_layout(font_family="arial")
@@ -412,10 +393,8 @@ def plot_animated_merit_profile(
 
 
 def ranking_plot(
-    df,
+    si: SurveyInterface,
     on_rolling_data: bool = False,
-    source: str = None,
-    sponsor: str = None,
     show_best_grade: bool = True,
     show_rank: bool = True,
     show_no_opinion: bool = True,
