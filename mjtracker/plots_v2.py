@@ -7,6 +7,7 @@ import pandas as pd
 from pandas import DataFrame
 
 from . import SurveyInterface
+from . import SurveysInterface
 from .smp_data import SMPData
 from .utils import get_intentions_colheaders, get_candidates, get_grades, rank2str
 from .misc.enums import PollingOrganizations, AggregationMode
@@ -393,7 +394,7 @@ def plot_animated_merit_profile(
 
 
 def ranking_plot(
-    si: SurveyInterface,
+    si: SurveysInterface,
     on_rolling_data: bool = False,
     show_best_grade: bool = True,
     show_rank: bool = True,
@@ -404,58 +405,57 @@ def ranking_plot(
     row=None,
     col=None,
 ) -> go.Figure:
-    if on_rolling_data:
-        if "rang_glissant" not in df.columns:
-            raise ValueError("This dataframe hasn't been smoothed with rolling average.")
-        df["rang"] = df["rang_glissant"]
-        df["mention_majoritaire"] = df["mention_majoritaire_glissante"]
 
     COLORS = load_colors()
     if fig is None:
         fig = go.Figure()
 
-    df = df.sort_values(by="end_date")
+    if not si.is_aggregated:
+        raise ValueError("The ranking plot requires the data to be aggregated into a unique set of grades.")
+
+    df = si.df.copy().sort_values(by="end_date")
 
     # Grade area
     if show_grade_area:
-        grades = get_grades(df)
-        nb_grades = len(grades)
-        c_rgb = color_palette(palette="coolwarm", n_colors=nb_grades)
-        for g, c in zip(grades, c_rgb):
-            temp_df = df[df["mention_majoritaire"] == g]
+        grades = si.grades
+        grades.reverse()
+        c_rgb = color_palette(palette="coolwarm", n_colors=si.nb_grades)
+        for grade, color in zip(grades, c_rgb):
+            temp_df = df[df["mention_majoritaire"] == grade]
             if not temp_df.empty:
-                c_alpha = str(f"rgba({c[0]},{c[1]},{c[2]},0.2)")
-                x_date = temp_df["end_date"].unique().tolist()
-                y_upper = []
-                y_lower = []
-                for d in x_date:
-                    y_upper.append(temp_df[temp_df["end_date"] == d]["rang"].min() - 0.5)
-                    y_lower.append(temp_df[temp_df["end_date"] == d]["rang"].max() + 0.5)
+                continue
 
-                fig.add_scatter(
-                    x=x_date + x_date[::-1],  # x, then x reversed
-                    y=y_upper + y_lower[::-1],  # upper, then lower reversed
-                    fill="toself",
-                    fillcolor=c_alpha,
-                    line=dict(color="rgba(255,255,255,0)"),
-                    hoverinfo="skip",
-                    showlegend=True,
-                    name=g,
-                    row=row,
-                    col=col,
-                )
+            c_alpha = str(f"rgba({color[0]},{color[1]},{color[2]},0.2)")
+            x_date = temp_df["end_date"].unique().tolist()
+            y_upper = []
+            y_lower = []
+            for d in x_date:
+                y_upper.append(temp_df[temp_df["end_date"] == d]["rang"].min() - 0.5)
+                y_lower.append(temp_df[temp_df["end_date"] == d]["rang"].max() + 0.5)
 
-    for ii in get_candidates(df):
+            fig.add_scatter(
+                x=x_date + x_date[::-1],  # x, then x reversed
+                y=y_upper + y_lower[::-1],  # upper, then lower reversed
+                fill="toself",
+                fillcolor=c_alpha,
+                line=dict(color="rgba(255,255,255,0)"),
+                hoverinfo="skip",
+                showlegend=True,
+                name=grade,
+                row=row,
+                col=col,
+            )
 
-        color = COLORS.get(ii, {"couleur": "black"})["couleur"]
+    for candidate in si.candidates:
+        color = COLORS.get(candidate, {"couleur": "black"})["couleur"]
 
-        temp_df = df[df["candidate"] == ii]
+        temp_df = si.select_candidate(candidate).copy()
         fig.add_trace(
             go.Scatter(
                 x=temp_df["end_date"],
                 y=temp_df["rang"],
                 mode="lines",
-                name=ii,
+                name=candidate,
                 marker=dict(color=color),
                 showlegend=False,
                 legendgroup=None,
@@ -469,7 +469,7 @@ def ranking_plot(
                 x=temp_df["end_date"].iloc[0:1],
                 y=temp_df["rang"].iloc[0:1],
                 mode="markers",
-                name=ii,
+                name=candidate,
                 marker=dict(color=color),
                 showlegend=False,
                 legendgroup=None,
@@ -483,7 +483,7 @@ def ranking_plot(
                 x=temp_df["end_date"].iloc[-1:],
                 y=temp_df["rang"].iloc[-1:],
                 mode="markers",
-                name=ii,
+                name=candidate,
                 marker=dict(color=color),
                 showlegend=False,
                 legendgroup=None,
@@ -498,7 +498,7 @@ def ranking_plot(
         yref = f"y{row}" if row is not None else None
         name_label = _extended_name_annotations(
             temp_df,
-            candidate=ii,
+            candidate=candidate,
             show_rank=False,
             show_best_grade=False,
             show_no_opinion=False,
@@ -525,7 +525,7 @@ def ranking_plot(
         # Nice name label
         extended_name_label = _extended_name_annotations(
             temp_df,
-            candidate=ii,
+            candidate=candidate,
             show_rank=show_rank,
             show_best_grade=show_best_grade,
             show_no_opinion=show_no_opinion,
@@ -559,16 +559,19 @@ def ranking_plot(
         showlegend=True,
     )
 
-    source_str = f"source: {source}" if source is not None else ""
-    source_str += ", " if sponsor is not None else ""
-    sponsor_str = f"commanditaire: {sponsor}" if sponsor is not None else ""
+    # Title
+    title = "<b>Classement des candidats à l'élection présidentielle 2027<br> au jugement majoritaire</b> "
 
-    date = df["end_date"].max()
-    title = (
-        "<b>Classement des candidats à l'élection présidentielle 2027<br> au jugement majoritaire </b> <br>"
-        + f"<i>{source_str}{sponsor_str}, dernier sondage: {date}.</i>"
-    )
-    fig.update_layout(title=title, title_x=0.5)
+    end_date = df["end_date"].max()
+
+    date_str = f"date: {end_date}, " if end_date is not None else ""
+    source_str = f"source: {si.source}" if si.source is not None else ""
+    source_str += ", " if si.sponsor is not None else ""
+    sponsor_str = f"commanditaire: {si.sponsor}" if si.sponsor is not None else ""
+    subtitle = f"<br><i>{source_str}{sponsor_str}, dernier sondage: {date_str}</i>"
+
+    fig.update_layout(title=title + subtitle, title_x=0.5)
+
     fig = _add_image_to_fig(fig, x=1.00, y=1.05, sizex=0.10, sizey=0.10, xanchor="right")
     # SIZE OF THE FIGURE
     fig.update_layout(width=1200, height=1000)

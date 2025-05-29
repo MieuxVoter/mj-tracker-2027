@@ -11,7 +11,7 @@ from .plots import (
     plot_comparison_intention,
     export_fig,
 )
-from .plots_v2 import plot_merit_profiles as pmp
+from .plots_v2 import plot_merit_profiles as pmp, ranking_plot as rkp
 from .misc.enums import PollingOrganizations, AggregationMode
 from .smp_data import SMPData
 
@@ -51,14 +51,11 @@ def batch_ranking(si: SurveysInterface, args, on_rolling_data: bool = False):
             continue
 
         if args.ranking_plot:
-            fig = ranking_plot(
-                si_poll.df,
-                source=si_poll.sources_string,
-                sponsor=si_poll.sponsors_string,
+            fig = rkp(
+                si_poll,
                 show_grade_area=True,
                 breaks_in_names=True,
                 show_best_grade=False,
-                on_rolling_data=on_rolling_data,
             )
             filename = f"ranking_plot_{poll.name}"
             print(filename)

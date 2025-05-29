@@ -13,6 +13,7 @@ from .survey_interface import SurveyInterface
 # Get the path to the current script
 CURRENT_SCRIPT_PATH = Path(__file__).parent
 STANDARDIZATION_CSV_PATH = CURRENT_SCRIPT_PATH / "standardisation.csv"
+MAX_MENTIONS_IN_DATAFRAME = 7  # Maximum number of mentions in the dataframe, used for sanity checks
 
 
 class SurveysInterface:
@@ -49,6 +50,10 @@ class SurveysInterface:
     @cached_property
     def surveys(self):
         return self.df["poll_id"].unique()
+
+    @property
+    def grades(self):
+        return [SurveyInterface(self.select_survey(id)).grades for id in self.surveys].unique()
 
     @cached_property
     def nb_surveys(self):
@@ -110,6 +115,21 @@ class SurveysInterface:
         ]
         self.df = pd.concat([df for df in all_df], ignore_index=True)
 
+    @property
+    def is_aggregated(self) -> bool:
+        """Check if the dataframe is aggregated into a unique set of grades."""
+        grades_first_row = self.df.iloc[0, [f"mention{i}" for i in range(1, MAX_MENTIONS_IN_DATAFRAME + 1)]].tolist()
+        return all(grade in grades_first_row for grade in self.grades)
+
+    @property
+    def nb_grades(self) -> int:
+        """Get the number of grades in the dataframe."""
+        if not self.is_aggregated:
+            raise RuntimeError(
+                "The dataframe is not aggregated. Please aggregate the dataframe before getting the number of grades."
+            )
+        return int(self.df["nombre_mentions"].unique()[0])
+
     def _check_nb_grades(self):
         """Check that the number of grades is the same for all surveys."""
         nb_grades = []
@@ -128,7 +148,7 @@ class SurveysInterface:
         """
         self._check_nb_grades()
         # new cols to store the data (rolling mean, std)
-        intentions_col = SurveyInterface(self.df[self.df["poll_id"] == s])._intentions_colheaders
+        intentions_col = SurveyInterface(self.df[self.df["poll_id"] == self.surveys[0]])._intentions_colheaders
         intentions_col_std = [f"{col}_std" for col in intentions_col]
         intentions_col_roll = [f"{col}_roll" for col in intentions_col]
 
