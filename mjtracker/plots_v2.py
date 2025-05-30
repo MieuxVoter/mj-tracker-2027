@@ -420,13 +420,13 @@ def ranking_plot(
         grades = si.grades
         grades.reverse()
         c_rgb = color_palette(palette="coolwarm", n_colors=si.nb_grades)
+        x_date = df["end_date"].unique().tolist()
+
         for grade, color in zip(grades, c_rgb):
             temp_df = df[df["mention_majoritaire"] == grade]
             if not temp_df.empty:
                 continue
 
-            c_alpha = str(f"rgba({color[0]},{color[1]},{color[2]},0.2)")
-            x_date = temp_df["end_date"].unique().tolist()
             y_upper = []
             y_lower = []
             for d in x_date:
@@ -437,7 +437,7 @@ def ranking_plot(
                 x=x_date + x_date[::-1],  # x, then x reversed
                 y=y_upper + y_lower[::-1],  # upper, then lower reversed
                 fill="toself",
-                fillcolor=c_alpha,
+                fillcolor=str(f"rgba({color[0]},{color[1]},{color[2]},0.2)"),
                 line=dict(color="rgba(255,255,255,0)"),
                 hoverinfo="skip",
                 showlegend=True,
@@ -449,7 +449,7 @@ def ranking_plot(
     for candidate in si.candidates:
         color = COLORS.get(candidate, {"couleur": "black"})["couleur"]
 
-        temp_df = si.select_candidate(candidate).copy()
+        temp_df = si.select_candidate(candidate).df.copy()
         fig.add_trace(
             go.Scatter(
                 x=temp_df["end_date"],
@@ -533,7 +533,7 @@ def ranking_plot(
         )
 
         # last dot annotation
-        # only if the last dot is correspond to the last polls
+        # only if the last dot correspond to the last polls
         if df["end_date"].max() == temp_df["end_date"].iloc[-1]:
             fig["layout"]["annotations"] += (
                 dict(
@@ -563,17 +563,15 @@ def ranking_plot(
     title = "<b>Classement des candidats à l'élection présidentielle 2027<br> au jugement majoritaire</b> "
 
     end_date = df["end_date"].max()
-
     date_str = f"date: {end_date}, " if end_date is not None else ""
-    source_str = f"source: {si.source}" if si.source is not None else ""
-    source_str += ", " if si.sponsor is not None else ""
-    sponsor_str = f"commanditaire: {si.sponsor}" if si.sponsor is not None else ""
+    source_str = f"source: {si.sources_string}" if si.sources_string is not None else ""
+    source_str += ", " if si.sponsors_string is not None else ""
+    sponsor_str = f"commanditaire: {si.sponsors_string}" if si.sponsors_string is not None else ""
     subtitle = f"<br><i>{source_str}{sponsor_str}, dernier sondage: {date_str}</i>"
 
     fig.update_layout(title=title + subtitle, title_x=0.5)
 
     fig = _add_image_to_fig(fig, x=1.00, y=1.05, sizex=0.10, sizey=0.10, xanchor="right")
-    # SIZE OF THE FIGURE
     fig.update_layout(width=1200, height=1000)
 
     # Legend

@@ -43,8 +43,8 @@ def main(args: Arguments):
     si.apply_mj()
     df = si.df
 
-    bmp(si, args, auto_text=False)
-    # br(si, args, on_rolling_data=False)
+    # bmp(si, args, auto_text=False)
+    br(si, args, on_rolling_data=False)
     # btmp(si, args, aggregation_mode, polls=PollingOrganizations.ALL)
 
     # if not args.test:
