@@ -449,7 +449,7 @@ def ranking_plot(
     for candidate in si.candidates:
         color = COLORS.get(candidate, {"couleur": "black"})["couleur"]
 
-        temp_df = si.select_candidate(candidate).df.copy()
+        temp_df = si.select_candidate(candidate).df.copy().sort_values(by="end_date")
         fig.add_trace(
             go.Scatter(
                 x=temp_df["end_date"],
