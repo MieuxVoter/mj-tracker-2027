@@ -5,6 +5,7 @@ This module is not finished yet. But it will be very much beneficial for the who
 from functools import cached_property
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from .misc.enums import PollingOrganizations, AggregationMode, Candidacy, UntilRound
@@ -50,17 +51,6 @@ class SurveysInterface:
     @cached_property
     def surveys(self):
         return self.df["poll_id"].unique()
-
-    @property
-    def grades(self):
-        grades = []
-        seen = set()
-        for id in self.surveys:
-            for grade in self.select_survey(id).grades:
-                if grade not in seen:
-                    seen.add(grade)
-                    grades.append(grade)
-        return grades
 
     @cached_property
     def nb_surveys(self):
@@ -139,10 +129,23 @@ class SurveysInterface:
     @property
     def is_aggregated(self) -> bool:
         """Check if the dataframe is aggregated into a unique set of grades."""
-        grades_first_row = self.df.loc[0, [f"mention{i}" for i in range(1, MAX_MENTIONS_IN_DATAFRAME + 1)]].tolist()
+        grades_first_row = self.df.loc[
+            self.df.first_valid_index(), [f"mention{i}" for i in range(1, MAX_MENTIONS_IN_DATAFRAME + 1)]
+        ].tolist()
         grades_first_row = [grade for grade in grades_first_row if grade not in {"nan", ""}]
 
         return all(grade in grades_first_row for grade in self.grades)
+
+    @property
+    def grades(self):
+        grades = []
+        seen = set()
+        for id in self.surveys:
+            for grade in self.select_survey(id).grades:
+                if grade not in seen:
+                    seen.add(grade)
+                    grades.append(grade)
+        return grades
 
     @property
     def nb_grades(self) -> int:
@@ -164,6 +167,17 @@ class SurveysInterface:
                     "The number of grade should be the same for all surveys. Please aggregate grades"
                     "or use data from the same kind of polls"
                 )
+
+    @property
+    def intentions(self):
+        intention_matrix = self.df[[f"intention_mention_{i}" for i in range(1, self.nb_grades + 1)]].to_numpy()
+        isnan_matrix = np.isnan(intention_matrix)
+        final_intention_matrix = np.ndarray((len(self.df), 0))
+        for intentioncol, nancol in zip(intention_matrix.T, isnan_matrix.T):
+            if not np.all(nancol):
+                final_intention_matrix = np.concatenate((final_intention_matrix, intentioncol[:, None]), axis=1)
+
+        return final_intention_matrix
 
     def filter(self):
         """

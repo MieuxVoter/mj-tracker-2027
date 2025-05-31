@@ -3,11 +3,9 @@ from typing import Iterable
 from .plots import (
     plot_merit_profiles,
     ranking_plot,
-    comparison_ranking_plot,
     plot_time_merit_profile,
     plot_time_merit_profile_all_polls,
     plot_ranked_time_merit_profile,
-    plot_comparison_intention,
     export_fig,
 )
 from .utils import (

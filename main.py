@@ -44,8 +44,8 @@ def main(args: Arguments):
     df = si.df
 
     # bmp(si, args, auto_text=False)
-    br(si, args, on_rolling_data=False)
-    # btmp(si, args, aggregation_mode, polls=PollingOrganizations.ALL)
+    # br(si, args, on_rolling_data=False)
+    btmp(si, args, aggregation_mode, polls=PollingOrganizations.ALL)
 
     # if not args.test:
     # generate ranking figures
