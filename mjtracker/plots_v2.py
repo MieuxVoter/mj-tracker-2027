@@ -427,6 +427,508 @@ def ranking_plot(
     return fig
 
 
+def ranking_plot_constant_area(
+    si: "SurveysInterface",
+    on_rolling_data: bool = False,
+    show_best_grade: bool = True,
+    show_rank: bool = True,
+    show_no_opinion: bool = True,
+    show_grade_area: bool = True,
+    breaks_in_names: bool = True,
+    fig: go.Figure | None = None,
+    row: int | None = None,
+    col: int | None = None,
+) -> go.Figure:
+    """Return a Plotly figure where each *mention majoritaire* band keeps a **constant
+    vertical extent** (1 unit). For every survey date, the candidates that share the
+    same grade are evenly spaced inside the corresponding band, meaning that their
+    trajectories compress whenever many candidates share the grade and expand when
+    the band contains only a few of them.
+
+    The signature is deliberately identical to ``ranking_plot`` so that you can use
+    it as a drop‑in replacement.
+    """
+
+    # ------------------------------------------------------------------
+    # Constants & sanity checks
+    # ------------------------------------------------------------------
+    COLORS = load_colors()
+    TRANSPARENCY = 0.5
+    GRADE_HEIGHT = 1.0  # constant height for every grade band
+    INNER_MARGIN = 0.10 * GRADE_HEIGHT  # free space at top/bottom of each band
+
+    if fig is None:
+        fig = go.Figure()
+
+    if not si.is_aggregated:
+        raise ValueError("The ranking plot requires the data to be aggregated into a unique set of grades.")
+
+    # ------------------------------------------------------------------
+    # 1 – Build a working DataFrame and compute the y‑coordinate to plot
+    # ------------------------------------------------------------------
+    df = si.df.copy().sort_values(by=["end_date", "rang"])
+    grades = list(si.grades)  # best → worst
+    grade_to_index = {g: i for i, g in enumerate(grades)}  # 0 == top band
+
+    df["grade_index"] = df["mention_majoritaire"].map(grade_to_index)
+    df["y_pos"] = np.nan
+
+    # For each poll date, evenly space candidates inside their band
+    for poll_date, date_group in df.groupby("end_date"):
+        for grade, grade_group in date_group.groupby("mention_majoritaire"):
+            band_idx = grade_to_index[grade]
+            k = len(grade_group)
+
+            band_top = band_idx + INNER_MARGIN
+            band_bottom = (band_idx + GRADE_HEIGHT) - INNER_MARGIN
+
+            if k == 1:
+                y_vals = [0.5 * (band_top + band_bottom)]
+            else:
+                # Upper position = best (smallest original rank)
+                y_vals = np.linspace(band_top, band_bottom, k)
+
+            # Preserve original ordering by rank so that the best sits on top
+            ordered_idx = grade_group.sort_values("rang").index
+            df.loc[ordered_idx, "y_pos"] = y_vals
+
+    # ------------------------------------------------------------------
+    # 2 – Draw fixed grade areas (simple 1‑unit rectangles)
+    # ------------------------------------------------------------------
+    if show_grade_area:
+        x_dates = si.dates
+        x_left, x_right = x_dates[0], x_dates[-1]
+
+        colors_rgb = get_grade_color_palette(si.nb_grades)
+        colors_rgb.reverse()  # keep same color ordering as original plot
+
+        for grade, rgb in zip(grades, colors_rgb):
+            idx = grade_to_index[grade]
+            y0, y1 = idx, idx + GRADE_HEIGHT
+
+            fig.add_scatter(
+                x=[x_left, x_right, x_right, x_left],
+                y=[y0, y0, y1, y1],
+                fill="toself",
+                fillcolor=f"rgba({rgb[0]},{rgb[1]},{rgb[2]},{TRANSPARENCY})",
+                line=dict(color="rgba(255,255,255,0)"),
+                hoverinfo="skip",
+                showlegend=True,
+                name=grade,
+                row=row,
+                col=col,
+            )
+
+    # ------------------------------------------------------------------
+    # 3 – Plot candidate trajectories using the rescaled y‑coordinate
+    # ------------------------------------------------------------------
+    for candidate in si.candidates:
+        color = COLORS.get(candidate, {"couleur": "black"})["couleur"]
+
+        # The helper keeps the candidate name column consistent across SI versions
+        temp_df = df[df.get("nom", df.get("candidate", "")) == candidate].copy().sort_values("end_date")
+        if temp_df.empty:  # fall‑back when the column name is unknown
+            temp_df = si.select_candidate(candidate).df.copy().sort_values("end_date")
+            temp_df = temp_df.merge(df[["end_date", "y_pos"]], on="end_date", how="left")
+
+        fig.add_trace(
+            go.Scatter(
+                x=temp_df["end_date"],
+                y=temp_df["y_pos"],
+                mode="lines",
+                name=candidate,
+                marker=dict(color=color),
+                showlegend=False,
+                legendgroup=None,
+            ),
+            row=row,
+            col=col,
+        )
+
+        # Start & end markers -------------------------------------------------
+        fig.add_trace(
+            go.Scatter(
+                x=temp_df["end_date"].iloc[[0]],
+                y=temp_df["y_pos"].iloc[[0]],
+                mode="markers",
+                name=candidate,
+                marker=dict(color=color),
+                showlegend=False,
+                legendgroup=None,
+            ),
+            row=row,
+            col=col,
+        )
+
+        fig.add_trace(
+            go.Scatter(
+                x=temp_df["end_date"].iloc[[-1]],
+                y=temp_df["y_pos"].iloc[[-1]],
+                mode="markers",
+                name=candidate,
+                marker=dict(color=color),
+                showlegend=False,
+                legendgroup=None,
+            ),
+            row=row,
+            col=col,
+        )
+
+        # ------------------------------------------------------------------
+        # 4 – Text annotations
+        # ------------------------------------------------------------------
+        xref = f"x{col}" if row is not None else None
+        yref = f"y{row}" if row is not None else None
+
+        bare_name_label = _extended_name_annotations(
+            temp_df,
+            candidate=candidate,
+            show_rank=False,
+            show_best_grade=False,
+            show_no_opinion=False,
+            breaks_in_names=breaks_in_names,
+        )
+        full_name_label = _extended_name_annotations(
+            temp_df,
+            candidate=candidate,
+            show_rank=show_rank,
+            show_best_grade=show_best_grade,
+            show_no_opinion=show_no_opinion,
+            breaks_in_names=breaks_in_names,
+        )
+
+        size_annotations = 12
+        name_shift = 10
+
+        if temp_df["end_date"].iloc[-1] != temp_df["end_date"].iloc[0]:
+            fig["layout"]["annotations"] += (
+                dict(
+                    x=temp_df["end_date"].iloc[0],
+                    y=temp_df["y_pos"].iloc[0],
+                    xanchor="right",
+                    xshift=-name_shift,
+                    text=bare_name_label,
+                    font=dict(family="Arial", size=size_annotations, color=color),
+                    showarrow=False,
+                    xref=xref,
+                    yref=yref,
+                ),
+            )
+
+        if df["end_date"].max() == temp_df["end_date"].iloc[-1]:
+            fig["layout"]["annotations"] += (
+                dict(
+                    x=temp_df["end_date"].iloc[-1],
+                    y=temp_df["y_pos"].iloc[-1],
+                    xanchor="left",
+                    xshift=name_shift,
+                    yanchor="middle",
+                    text=full_name_label,
+                    font=dict(family="Arial", size=size_annotations, color=color),
+                    showarrow=False,
+                    xref=xref,
+                    yref=yref,
+                ),
+            )
+
+    # ------------------------------------------------------------------
+    # 5 – Layout, title, legend, etc.
+    # ------------------------------------------------------------------
+    fig.update_layout(
+        yaxis=dict(
+            autorange="reversed",
+            tick0=0,
+            dtick=GRADE_HEIGHT,
+            range=[0, len(grades)],
+            visible=False,
+        ),
+        plot_bgcolor="white",
+        showlegend=True,
+    )
+
+    # Title ------------------------------------------------------------------
+    title = "<b>Classement des candidats à l'élection présidentielle 2027" "<br> au jugement majoritaire</b> "
+    end_date = df["end_date"].max()
+    date_str = f"date: {end_date}, " if end_date is not None else ""
+    source_str = f"source: {si.sources_string}" if si.sources_string else ""
+    source_str += ", " if si.sponsors_string else ""
+    sponsor_str = f"commanditaire: {si.sponsors_string}" if si.sponsors_string else ""
+    subtitle = f"<br><i>{source_str}{sponsor_str}dernier sondage: {date_str}</i>"
+
+    fig.update_layout(title=title + subtitle, title_x=0.5)
+
+    fig = _add_image_to_fig(fig, x=1.00, y=1.05, sizex=0.10, sizey=0.10, xanchor="right")
+
+    fig.update_layout(
+        width=1200,
+        height=1000,
+        legend_title_text="Mentions majoritaires",
+        autosize=True,
+        legend=dict(orientation="h", xanchor="center", x=0.5, y=-0.05),
+    )
+
+    return fig
+
+
+def ranking_plot_variable_band_height(
+    si: "SurveysInterface",
+    on_rolling_data: bool = False,
+    show_best_grade: bool = True,
+    show_rank: bool = True,
+    show_no_opinion: bool = True,
+    show_grade_area: bool = True,
+    breaks_in_names: bool = True,
+    fig: go.Figure | None = None,
+    row: int | None = None,
+    col: int | None = None,
+) -> go.Figure:
+    """Plot candidates' trajectories with fixed *area* bands whose heights are
+    proportional to the **average** number of candidates they host across all
+    surveys.
+
+    * Inside every band, candidates are evenly spaced **per survey date**, so the
+      curves compress when many contenders share a grade and relax when they are
+      few.
+    * Replace your original ``ranking_plot`` with this function for adaptive yet
+      comparable grade areas.
+    """
+
+    # ------------------------------------------------------------------
+    # Constants & helpers
+    # ------------------------------------------------------------------
+    COLORS = load_colors()
+    TRANSPARENCY = 0.5
+    INNER_MARGIN_RATIO = 0.10  # 10 % margin inside each band (top & bottom)
+    MIN_HEIGHT = 0.35  # safety height if a grade would receive ~0 cand.
+
+    if fig is None:
+        fig = go.Figure()
+
+    if not si.is_aggregated:
+        raise ValueError("The ranking plot requires the data to be aggregated into a unique set of grades.")
+
+    # ------------------------------------------------------------------
+    # 1 – Prepare DataFrame & compute average counts per grade
+    # ------------------------------------------------------------------
+    df = si.df.copy().sort_values(by=["end_date", "rang"])
+    grades = list(si.grades)  # best → worst
+    grade_to_idx = {g: i for i, g in enumerate(grades)}
+
+    # Count candidates per date & grade, then take the mean over dates
+    counts = df.groupby(["end_date", "mention_majoritaire"]).size().unstack(fill_value=0)
+    mean_counts = counts.mean(axis=0).reindex(grades).fillna(0)
+
+    # Scale heights so that the *sum* of band heights equals ``len(grades)``
+    scale = len(grades) / mean_counts.sum() if mean_counts.sum() else 1.0
+    heights = (mean_counts * scale).clip(lower=MIN_HEIGHT)
+
+    # Re‑compute the scale if total height changed after clipping
+    total_height = heights.sum()
+    heights *= len(grades) / total_height
+
+    # Build cumulative bounds for every grade  ---------------------------
+    bounds = {}
+    cum_y = 0.0
+    for g in grades:
+        h = heights[g]
+        bounds[g] = (cum_y, cum_y + h)
+        cum_y += h
+
+    # Cache the total vertical span for axis limits later
+    AXIS_HEIGHT = cum_y
+
+    # ------------------------------------------------------------------
+    # 2 – Compute y‑coordinate (compressed) for every candidate & date
+    # ------------------------------------------------------------------
+    df["y_pos"] = np.nan
+
+    for poll_date, date_group in df.groupby("end_date"):
+        for grade, grade_group in date_group.groupby("mention_majoritaire"):
+            y0, y1 = bounds[grade]
+            band_height = y1 - y0
+            inner_margin = INNER_MARGIN_RATIO * band_height
+            inner_top = y0 + inner_margin
+            inner_bottom = y1 - inner_margin
+
+            k = len(grade_group)
+            if k == 1:
+                y_values = [0.5 * (inner_top + inner_bottom)]
+            else:
+                # Best rank (lowest "rang") should sit on *inner_top*
+                y_values = np.linspace(inner_top, inner_bottom, k)
+
+            ordered_idx = grade_group.sort_values("rang").index
+            df.loc[ordered_idx, "y_pos"] = y_values
+
+    # ------------------------------------------------------------------
+    # 3 – Draw grade rectangles (scaled height) if requested
+    # ------------------------------------------------------------------
+    if show_grade_area:
+        colors_rgb = get_grade_color_palette(si.nb_grades)
+        colors_rgb.reverse()
+        x_left, x_right = si.dates[0], si.dates[-1]
+
+        for grade, rgb in zip(grades, colors_rgb):
+            y0, y1 = bounds[grade]
+            fig.add_scatter(
+                x=[x_left, x_right, x_right, x_left],
+                y=[y0, y0, y1, y1],
+                fill="toself",
+                fillcolor=f"rgba({rgb[0]},{rgb[1]},{rgb[2]},{TRANSPARENCY})",
+                line=dict(color="rgba(255,255,255,0)"),
+                hoverinfo="skip",
+                showlegend=True,
+                name=grade,
+                row=row,
+                col=col,
+            )
+
+    # ------------------------------------------------------------------
+    # 4 – Plot candidates
+    # ------------------------------------------------------------------
+    for candidate in si.candidates:
+        color = COLORS.get(candidate, {"couleur": "black"})["couleur"]
+
+        temp_df = df[df.get("nom", df.get("candidate", "")) == candidate]
+        if temp_df.empty:
+            temp_df = (
+                si.select_candidate(candidate).df.copy().merge(df[["end_date", "y_pos"]], on="end_date", how="left")
+            )
+        temp_df = temp_df.sort_values("end_date")
+
+        # Lines -----------------------------------------------------------
+        fig.add_trace(
+            go.Scatter(
+                x=temp_df["end_date"],
+                y=temp_df["y_pos"],
+                mode="lines",
+                name=candidate,
+                marker=dict(color=color),
+                showlegend=False,
+            ),
+            row=row,
+            col=col,
+        )
+
+        # Start & end dots ----------------------------------------------
+        fig.add_trace(
+            go.Scatter(
+                x=temp_df["end_date"].iloc[[0]],
+                y=temp_df["y_pos"].iloc[[0]],
+                mode="markers",
+                marker=dict(color=color),
+                name=candidate,
+                showlegend=False,
+            ),
+            row=row,
+            col=col,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=temp_df["end_date"].iloc[[-1]],
+                y=temp_df["y_pos"].iloc[[-1]],
+                mode="markers",
+                marker=dict(color=color),
+                name=candidate,
+                showlegend=False,
+            ),
+            row=row,
+            col=col,
+        )
+
+        # ----------------------------------------------------------------
+        # 5 – Text annotations
+        # ----------------------------------------------------------------
+        xref = f"x{col}" if row is not None else None
+        yref = f"y{row}" if row is not None else None
+        size_annotations, name_shift = 12, 10
+
+        bare_label = _extended_name_annotations(
+            temp_df,
+            candidate=candidate,
+            show_rank=False,
+            show_best_grade=False,
+            show_no_opinion=False,
+            breaks_in_names=breaks_in_names,
+        )
+        full_label = _extended_name_annotations(
+            temp_df,
+            candidate=candidate,
+            show_rank=show_rank,
+            show_best_grade=show_best_grade,
+            show_no_opinion=show_no_opinion,
+            breaks_in_names=breaks_in_names,
+        )
+
+        if temp_df["end_date"].iloc[-1] != temp_df["end_date"].iloc[0]:
+            fig["layout"]["annotations"] += (
+                dict(
+                    x=temp_df["end_date"].iloc[0],
+                    y=temp_df["y_pos"].iloc[0],
+                    xanchor="right",
+                    xshift=-name_shift,
+                    text=bare_label,
+                    font=dict(family="Arial", size=size_annotations, color=color),
+                    showarrow=False,
+                    xref=xref,
+                    yref=yref,
+                ),
+            )
+
+        if df["end_date"].max() == temp_df["end_date"].iloc[-1]:
+            fig["layout"]["annotations"] += (
+                dict(
+                    x=temp_df["end_date"].iloc[-1],
+                    y=temp_df["y_pos"].iloc[-1],
+                    xanchor="left",
+                    xshift=name_shift,
+                    yanchor="middle",
+                    text=full_label,
+                    font=dict(family="Arial", size=size_annotations, color=color),
+                    showarrow=False,
+                    xref=xref,
+                    yref=yref,
+                ),
+            )
+
+    # ------------------------------------------------------------------
+    # 6 – Layout & cosmetics
+    # ------------------------------------------------------------------
+    fig.update_layout(
+        yaxis=dict(
+            autorange="reversed",
+            tick0=0,
+            dtick=1,  # logical tick every "unit" (can be hidden)
+            range=[0, AXIS_HEIGHT],
+            visible=False,
+        ),
+        plot_bgcolor="white",
+        showlegend=True,
+    )
+
+    title = "<b>Classement des candidats à l'élection présidentielle 2027<br> au jugement majoritaire</b> "
+    end_date = df["end_date"].max()
+    date_str = f"date: {end_date}, " if end_date is not None else ""
+    source_str = f"source: {si.sources_string}" if si.sources_string else ""
+    source_str += ", " if si.sponsors_string else ""
+    sponsor_str = f"commanditaire: {si.sponsors_string}" if si.sponsors_string else ""
+    subtitle = f"<br><i>{source_str}{sponsor_str}dernier sondage: {date_str}</i>"
+
+    fig.update_layout(title=title + subtitle, title_x=0.5)
+
+    fig = _add_image_to_fig(fig, x=1.00, y=1.05, sizex=0.10, sizey=0.10, xanchor="right")
+
+    fig.update_layout(
+        width=1200,
+        height=1000,
+        legend_title_text="Mentions majoritaires",
+        autosize=True,
+        legend=dict(orientation="h", xanchor="center", x=0.5, y=-0.05),
+    )
+
+    return fig
+
+
 def plot_time_merit_profile(
     si: SurveyInterface,
     fig: go.Figure = None,
@@ -515,6 +1017,7 @@ def plot_time_merit_profile(
 
     return fig
 
+
 #  TODO: REFACTOR
 def plot_ranked_time_merit_profile(
     df: DataFrame,
@@ -589,6 +1092,7 @@ def plot_ranked_time_merit_profile(
     fig = _add_image_to_fig(fig, x=1.00, y=1.05, sizex=0.10, sizey=0.10, xanchor="right")
 
     return fig
+
 
 #  TODO: REFACTOR
 def plot_time_merit_profile_all_polls(df, aggregation, on_rolling_data: bool = False) -> go.Figure:
