@@ -407,6 +407,8 @@ def ranking_plot(
 ) -> go.Figure:
 
     COLORS = load_colors()
+    TRANSPARENCY = 0.2
+
     if fig is None:
         fig = go.Figure()
 
@@ -418,13 +420,12 @@ def ranking_plot(
     # Grade area
     if show_grade_area:
         grades = si.grades
-        grades.reverse()
         c_rgb = color_palette(palette="coolwarm", n_colors=si.nb_grades)
-        x_date = df["end_date"].unique().tolist()
+        x_date = si.dates
 
         for grade, color in zip(grades, c_rgb):
             temp_df = df[df["mention_majoritaire"] == grade]
-            if not temp_df.empty:
+            if temp_df.empty:
                 continue
 
             y_upper = []
@@ -437,7 +438,7 @@ def ranking_plot(
                 x=x_date + x_date[::-1],  # x, then x reversed
                 y=y_upper + y_lower[::-1],  # upper, then lower reversed
                 fill="toself",
-                fillcolor=str(f"rgba({color[0]},{color[1]},{color[2]},0.2)"),
+                fillcolor=str(f"rgba({color[0]},{color[1]},{color[2]},{TRANSPARENCY})"),
                 line=dict(color="rgba(255,255,255,0)"),
                 hoverinfo="skip",
                 showlegend=True,
@@ -492,8 +493,7 @@ def ranking_plot(
             col=col,
         )
 
-        # PREPARE ANNOTATIONS
-        # name with break btw name and surname
+        # PREPARE ANNOTATIONS - name with break btw name and surname
         xref = f"x{col}" if row is not None else None
         yref = f"y{row}" if row is not None else None
         name_label = _extended_name_annotations(
@@ -505,6 +505,7 @@ def ranking_plot(
             breaks_in_names=breaks_in_names,
         )
         size_annotations = 12
+        name_shift = 10
 
         # first dot annotation
         if temp_df["end_date"].iloc[-1] != temp_df["end_date"].iloc[0]:
@@ -513,7 +514,7 @@ def ranking_plot(
                     x=temp_df["end_date"].iloc[0],
                     y=temp_df["rang"].iloc[0],
                     xanchor="right",
-                    xshift=-10,
+                    xshift=-name_shift,
                     text=f"{name_label}",
                     font=dict(family="Arial", size=size_annotations, color=color),
                     showarrow=False,
@@ -540,7 +541,7 @@ def ranking_plot(
                     x=temp_df["end_date"].iloc[-1],
                     y=temp_df["rang"].iloc[-1],
                     xanchor="left",
-                    xshift=10,
+                    xshift=name_shift,
                     yanchor="middle",
                     text=extended_name_label,
                     font=dict(family="Arial", size=size_annotations, color=color),
@@ -572,10 +573,11 @@ def ranking_plot(
     fig.update_layout(title=title + subtitle, title_x=0.5)
 
     fig = _add_image_to_fig(fig, x=1.00, y=1.05, sizex=0.10, sizey=0.10, xanchor="right")
-    fig.update_layout(width=1200, height=1000)
 
     # Legend
     fig.update_layout(
+        width=1200,
+        height=1000,
         legend_title_text="Mentions majoritaires",
         autosize=True,
         legend=dict(orientation="h", xanchor="center", x=0.5, y=-0.05),  # 50 % of the figure width/

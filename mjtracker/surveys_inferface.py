@@ -82,6 +82,20 @@ class SurveysInterface:
         return self.df["institut"].unique()
 
     @cached_property
+    def dates(self) -> list[str]:
+        """Get the list of end dates of polls."""
+        dates = self.df["end_date"].unique().tolist()
+        return sorted(dates)
+
+    @cached_property
+    def most_recent_dates(self) -> list[str]:
+        return self.dates[-1]
+
+    @cached_property
+    def oldest_dates(self) -> list[str]:
+        return self.dates[0]
+
+    @cached_property
     def sponsors_string(self) -> str:
         """Get the string of sponsors in the surveys."""
         return ", ".join(self.sponsors)

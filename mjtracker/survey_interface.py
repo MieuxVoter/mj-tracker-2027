@@ -345,13 +345,14 @@ class SurveyInterface:
             idx = np.where(self.df["candidate"] == c)[0][0]
             self.df.iat[idx, col_rank] = ranking[c]
 
-        grade_list = self._grades_colheaders
-        if not reversed:
+        grade_list = self.grades
+        if reversed:
             grade_list.reverse()
 
-        for c, val in best_grades.items():
-            idx = np.where(self.df["candidate"] == c)[0][0]
-            self.df.iat[idx, col_best_grade] = grade_list[val]
+        for candidate, best_grade in best_grades.items():
+            idx = np.where(self.df["candidate"] == candidate)[0][0]
+            print(grade_list[best_grade])
+            self.df.iat[idx, col_best_grade] = grade_list[best_grade]
 
         return self.df
 
