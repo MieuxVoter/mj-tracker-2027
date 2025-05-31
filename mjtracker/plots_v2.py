@@ -407,7 +407,8 @@ def ranking_plot(
 ) -> go.Figure:
 
     COLORS = load_colors()
-    TRANSPARENCY = 0.2
+    TRANSPARENCY = 0.5
+    AREA_EDGE_OFFSET = 0.42
 
     if fig is None:
         fig = go.Figure()
@@ -420,19 +421,35 @@ def ranking_plot(
     # Grade area
     if show_grade_area:
         grades = si.grades
-        c_rgb = color_palette(palette="coolwarm", n_colors=si.nb_grades)
+        # c_rgb = color_palette(palette="coolwarm", n_colors=si.nb_grades)
+
+        c_rgb = get_grade_color_palette(si.nb_grades)
+        c_rgb.reverse()
+
         x_date = si.dates
 
         for grade, color in zip(grades, c_rgb):
             temp_df = df[df["mention_majoritaire"] == grade]
             if temp_df.empty:
+                fig.add_scatter(
+                    x=[x_date[0], x_date[-1], x_date[-1], x_date[0]],
+                    y=[0, 0, 0, 0],
+                    fill="toself",
+                    fillcolor=str(f"rgba({color[0]},{color[1]},{color[2]},{TRANSPARENCY})"),
+                    line=dict(color="rgba(255,255,255,0)"),
+                    hoverinfo="skip",
+                    showlegend=True,
+                    name=grade,
+                    row=row,
+                    col=col,
+                )
                 continue
 
             y_upper = []
             y_lower = []
             for d in x_date:
-                y_upper.append(temp_df[temp_df["end_date"] == d]["rang"].min() - 0.5)
-                y_lower.append(temp_df[temp_df["end_date"] == d]["rang"].max() + 0.5)
+                y_upper.append(temp_df[temp_df["end_date"] == d]["rang"].min() - AREA_EDGE_OFFSET)
+                y_lower.append(temp_df[temp_df["end_date"] == d]["rang"].max() + AREA_EDGE_OFFSET)
 
             fig.add_scatter(
                 x=x_date + x_date[::-1],  # x, then x reversed
