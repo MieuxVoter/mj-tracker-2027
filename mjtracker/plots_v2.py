@@ -436,6 +436,7 @@ def plot_time_merit_profile(
     row: int = None,
     col: int = None,
 ) -> go.Figure:
+
     # todo: reverse legend -> from positive to negative
 
     if fig is None:
@@ -514,7 +515,7 @@ def plot_time_merit_profile(
 
     return fig
 
-
+#  TODO: REFACTOR
 def plot_ranked_time_merit_profile(
     df: DataFrame,
     sponsor: str = None,
@@ -589,7 +590,7 @@ def plot_ranked_time_merit_profile(
 
     return fig
 
-
+#  TODO: REFACTOR
 def plot_time_merit_profile_all_polls(df, aggregation, on_rolling_data: bool = False) -> go.Figure:
     name_subplot = tuple([poll.value for poll in PollingOrganizations if poll != PollingOrganizations.ALL])
     suffix = "_roll" if on_rolling_data else ""
