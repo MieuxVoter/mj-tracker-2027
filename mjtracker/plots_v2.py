@@ -1166,7 +1166,7 @@ def plot_time_merit_profile_all_polls(si: SurveysInterface, aggregation: Aggrega
     )
 
     # Title and detailed
-    title = f"<b>Evolution des mentions au jugement majoritaire<br>pour le candidat {si.df.candidat.unique().tolist()[0]}</b>"
+    title = f"<b>Evolution des mentions au jugement majoritaire<br>pour le candidat {si.df.candidate.unique().tolist()[0]}</b>"
     fig.update_layout(title=title, title_x=0.5)
     fig = _add_image_to_fig(fig, x=1.1, y=0.15, sizex=0.25, sizey=0.25)
 

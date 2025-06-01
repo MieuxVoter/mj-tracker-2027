@@ -7,6 +7,7 @@ from .plots_v2 import (
     ranking_plot as rkp,
     plot_time_merit_profile as ptmp,
     plot_ranked_time_merit_profile as prtmp,
+    plot_time_merit_profile_all_polls,
 )
 from .misc.enums import PollingOrganizations, AggregationMode
 from .smp_data import SMPData
@@ -40,7 +41,7 @@ def batch_merit_profile(si: SurveysInterface, args, auto_text: bool = False):
             export_fig(fig, args, filename)
 
 
-def batch_ranking(si: SurveysInterface, args, on_rolling_data: bool = False):
+def batch_ranking(si: SurveysInterface, args, filtered: bool = False):
     for poll in PollingOrganizations:
         si_poll = si.select_polling_organization(poll)
         if si_poll.df.empty:
@@ -53,7 +54,8 @@ def batch_ranking(si: SurveysInterface, args, on_rolling_data: bool = False):
                 breaks_in_names=True,
                 show_best_grade=False,
             )
-            filename = f"ranking_plot_{poll.name}"
+            filtered_str = "_filtered" if filtered else ""
+            filename = f"ranking_plot_{poll.name}{filtered_str}"
             print(filename)
             export_fig(fig, args, filename)
 
@@ -92,7 +94,7 @@ def batch_ranked_time_merit_profile(
     args,
     aggregation,
     polls: PollingOrganizations = PollingOrganizations,
-    on_rolling_data: bool = False,
+    filtered: bool = False,
 ):
     if not isinstance(polls, Iterable):
         polls = [polls]
@@ -104,7 +106,7 @@ def batch_ranked_time_merit_profile(
         if si_poll.df.empty:
             continue
 
-        roll = "_roll" if on_rolling_data else ""
+        filtered_str = "_filtered" if filtered else ""
 
         if args.ranked_time_merit_profile:
             fig = prtmp(
@@ -112,16 +114,16 @@ def batch_ranked_time_merit_profile(
                 show_no_opinion=True,
                 on_rolling_data=on_rolling_data,
             )
-            filename = f"ranked_time_merit_profile{aggregation.string_label}_{si_poll.sources_string}{roll}"
+            filename = f"ranked_time_merit_profile{aggregation.string_label}_{si_poll.sources_string}{filtered_str}"
             print(filename)
             export_fig(fig, args, filename)
 
 
-def batch_time_merit_profile_all(si: SurveysInterface, args, aggregation, on_rolling_data: bool = False):
+def batch_time_merit_profile_all(si: SurveysInterface, args, aggregation, filtered: bool = False):
     if aggregation == AggregationMode.NO_AGGREGATION:
         raise ValueError("Need to have an AggregationMode such as FOUR_MENTION to make it work.")
 
-    roll = "_roll" if on_rolling_data else ""
+    filtered_str = "_filtered" if filtered else ""
 
     for candidate in si.candidates:
         si_candidate = si.select_candidate(candidate)
@@ -129,7 +131,7 @@ def batch_time_merit_profile_all(si: SurveysInterface, args, aggregation, on_rol
         if temp_df.empty:
             continue
         if args.time_merit_profile:
-            fig = ptmp(si_candidate)
-            filename = f"time_merit_profile{aggregation.string_label}_{candidate}{roll}"
+            fig = plot_time_merit_profile_all_polls(si_candidate, aggregation)
+            filename = f"time_merit_profile{aggregation.string_label}_{candidate}{filtered_str}"
             print(filename)
             export_fig(fig, args, filename)

@@ -1,22 +1,14 @@
 from pathlib import Path
 import tap
-from mjtracker.batch_figure import (
+from mjtracker.batch_plots import (
     batch_merit_profile,
     batch_ranking,
     batch_time_merit_profile,
-    batch_comparison_ranking,
-    batch_time_merit_profile_all,
     batch_ranked_time_merit_profile,
-    batch_comparison_intention,
+    batch_time_merit_profile_all,
 )
-from mjtracker.batch_plots import (
-    batch_merit_profile as bmp,
-    batch_ranking as br,
-    batch_time_merit_profile as btmp,
-    batch_ranked_time_merit_profile as brtmp,
-    batch_time_merit_profile_all as btmpa,
-)
-from mjtracker.smp_data import SMPData
+
+# from mjtracker.smp_data import SMPData # not available yet.
 from mjtracker.misc.enums import AggregationMode, PollingOrganizations, UntilRound
 from mjtracker import SurveysInterface
 
@@ -41,20 +33,31 @@ def main(args: Arguments):
     args.dest.mkdir(exist_ok=True, parents=True)
     aggregation_mode = AggregationMode.FOUR_MENTIONS
 
+    # load from the database
     si = SurveysInterface.load(
         args.csv,
         polling_organization=PollingOrganizations.ALL,
     )
+    # remove no opinion data
     si.to_no_opinion_surveys()
-    si.aggregate(aggregation_mode)
-    si.apply_mj()
-    df = si.df
 
-    bmp(si, args, auto_text=False)
-    br(si, args, on_rolling_data=False)
-    btmp(si, args, aggregation_mode, polls=PollingOrganizations.ALL)
-    brtmp(si, args, aggregation_mode, polls=PollingOrganizations.ALL)
-    btmpa(si, args, aggregation_mode)
+    # aggregation to merge all database if possible.
+    si.aggregate(aggregation_mode)
+
+    # filter the majority judgement data to get a smoother estimation of grades
+    filtered = True
+    if filtered:
+        si.filter()
+
+    # Apply the Majority Judgement rule
+    si.apply_mj()
+
+    # # generate all the graphs
+    # batch_merit_profile(si, args, auto_text=False)
+    # batch_ranking(si, args, filtered=filtered)
+    # batch_time_merit_profile(si, args, aggregation_mode, polls=PollingOrganizations.ALL, filtered=filtered)
+    # batch_ranked_time_merit_profile(si, args, aggregation_mode, polls=PollingOrganizations.ALL, filtered=filtered)
+    batch_time_merit_profile_all(si, args, aggregation_mode, filtered=filtered)
 
 
 if __name__ == "__main__":
