@@ -1008,7 +1008,7 @@ def plot_time_merit_profile(
         source_str = f"source: {si.sources_string}" if si.sources is not None else ""
         source_str += ", " if si.sponsors is not None else ""
         sponsor_str = f"commanditaire: {si.sponsors_string}" if si.sponsors is not None else ""
-        subtitle = f"<br><i>{source_str}{sponsor_str}, dernier sondage: {si.most_recent_dates}.</i>"
+        subtitle = f"<br><i>{source_str}{sponsor_str}, dernier sondage: {si.most_recent_date}.</i>"
 
         fig.update_layout(title=title + subtitle, title_x=0.5)
 
@@ -1018,24 +1018,19 @@ def plot_time_merit_profile(
     return fig
 
 
-#  TODO: REFACTOR
 def plot_ranked_time_merit_profile(
-    df: DataFrame,
-    sponsor: str = None,
-    source: str = None,
+    si: SurveysInterface,
     show_no_opinion: bool = True,
     on_rolling_data: bool = False,
 ) -> go.Figure:
     # Candidat list sorted the rank in the last poll
-    most_recent_date = df["end_date"].max()
-    temp_df = df[df["end_date"] == most_recent_date]
-    temp_df = temp_df.sort_values(by="rang_glissant" if on_rolling_data else "rang")
-    candidates = get_candidates(temp_df)
-    titles_candidates = [f"{c} {rank2str(i+1)}" for i, c in enumerate(candidates)]
+    si_most_recent = si.most_recent_survey
+    si_most_recent.df.sort_values(by="rang")
+    titles_candidates = [f"{c} {rank2str(i+1)}" for i, c in enumerate(si_most_recent.candidates)]
 
     # size of the figure
-    n_rows, n_cols = _generate_windows_size(len(candidates))
-    idx_rows, idx_cols = np.unravel_index([i for i in range(len(candidates))], (n_rows, n_cols))
+    n_rows, n_cols = _generate_windows_size(len(si_most_recent.candidates))
+    idx_rows, idx_cols = np.unravel_index([i for i in range(si_most_recent.nb_candidates)], (n_rows, n_cols))
     idx_rows += 1
     idx_cols += 1
     fig = make_subplots(
@@ -1049,13 +1044,10 @@ def plot_ranked_time_merit_profile(
     )
 
     show_legend = True
-    for row, col, c in zip(idx_rows, idx_cols, candidates):
-        temp_df = df[df["candidate"] == c]
+    for row, col, c in zip(idx_rows, idx_cols, si.candidates):
         fig = plot_time_merit_profile(
-            df=temp_df,
+            si=si.select_candidate(c),
             fig=fig,
-            on_rolling_data=on_rolling_data,
-            show_no_opinion=show_no_opinion,
             show_legend=show_legend,
             no_layout=True,
             row=row,
@@ -1079,29 +1071,28 @@ def plot_ranked_time_merit_profile(
         plot_bgcolor="white",
     )
 
-    # Title and detailed
-    source_str = f"source: {source}" if source is not None else ""
-    source_str += ", " if sponsor is not None else ""
-    sponsor_str = f"commanditaire: {sponsor}" if sponsor is not None else ""
-    pop_str = " - population: " + str(df["population"].iloc[0]) if "population" in df.columns else ""
-    title = (
-        f"<b>Classement des candidats au jugement majoritaire</b>{pop_str}"
-        + f"<br><i>{source_str}{sponsor_str}, dernier sondage: {most_recent_date}.</i>"
-    )
-    fig.update_layout(title=title, title_x=0.5)
+    # Title
+    pop_str = " - population: " + str(si.df["population"].iloc[0]) if "population" in si.df.columns else ""
+    title = f"<b>Classement des candidats au jugement majoritaire</b>{pop_str}"
+
+    source_str = f"source: {si.sources_string}" if si.sources_string is not None else ""
+    source_str += ", " if si.sponsors_string is not None else ""
+    sponsor_str = f"commanditaire: {si.sponsors_string}" if si.sponsors_string is not None else ""
+    subtitle = f"<br><i>{source_str}{sponsor_str}, dernier sondage: {si.most_recent_date}.</i>"
+
+    fig.update_layout(title=title + subtitle, title_x=0.5)
     fig = _add_image_to_fig(fig, x=1.00, y=1.05, sizex=0.10, sizey=0.10, xanchor="right")
 
     return fig
 
 
-#  TODO: REFACTOR
-def plot_time_merit_profile_all_polls(df, aggregation, on_rolling_data: bool = False) -> go.Figure:
+def plot_time_merit_profile_all_polls(si: SurveysInterface, aggregation: AggregationMode) -> go.Figure:
     name_subplot = tuple([poll.value for poll in PollingOrganizations if poll != PollingOrganizations.ALL])
-    suffix = "_roll" if on_rolling_data else ""
-    fig = make_subplots(rows=3, cols=1, subplot_titles=name_subplot)
+    fig = make_subplots(rows=len(name_subplot), cols=1, subplot_titles=name_subplot)
+
     count = 0
-    date_max = df["fin_enquete"].max()
-    date_min = df["fin_enquete"].min()
+    date_max = si.most_recent_date
+    date_min = si.oldest_date
 
     if aggregation == AggregationMode.NO_AGGREGATION:
         group_legend = [i for i in name_subplot]
@@ -1114,23 +1105,21 @@ def plot_time_merit_profile_all_polls(df, aggregation, on_rolling_data: bool = F
         count += 1
         show_legend = True if (count == 1 or aggregation == AggregationMode.NO_AGGREGATION) else False
 
-        df_poll = df[df["nom_institut"] == poll.value].copy() if poll != PollingOrganizations.ALL else df.copy()
-        if df_poll.empty:
+        si_poll = si.select_polling_organization(poll)
+        if si_poll.df.empty:
             continue
-        nb_grades = len(get_grades(df_poll))
-        colors = color_palette(palette="coolwarm", n_colors=nb_grades)
-        color_dict = {f"intention_mention_{i + 1}": f"rgb{str(colors[i])}" for i in range(nb_grades)}
 
-        col_intention = get_intentions_colheaders(df_poll, nb_grades)
-        y_cumsum = df_poll[col_intention].to_numpy()
-        for g, col, cur_y in zip(get_grades(df_poll), col_intention, y_cumsum.T):
+        colors = color_palette(palette="coolwarm", n_colors=si_poll.nb_grades)
+        color_dict = {f"{i}": f"rgb{str(colors[i])}" for i in range(si_poll.nb_grades)}
+        y_cumsum = si_poll.intentions
+        for i, (g, cur_y) in enumerate(zip(si_poll.grades, y_cumsum.T)):
             fig.add_trace(
                 go.Scatter(
-                    x=df_poll["fin_enquete"],
+                    x=si_poll.dates,
                     y=cur_y,
                     hoverinfo="x+y",
                     mode="lines",
-                    line=dict(width=0.5, color=color_dict[col]),
+                    line=dict(width=0.5, color=color_dict[f"{i}"]),
                     stackgroup="one",  # define stack group
                     name=g,
                     showlegend=show_legend,
@@ -1140,12 +1129,14 @@ def plot_time_merit_profile_all_polls(df, aggregation, on_rolling_data: bool = F
                 row=count,
                 col=1,
             )
+
+        # I don't remember what this is.
         show_legend_no_opinion = True if count == 1 else False
         # fig = add_no_opinion_time_merit_profile(
         #     fig, df_poll, suffix, row=count, col=1, show_legend=show_legend_no_opinion
         # )
 
-        for d in df_poll["end_date"]:
+        for d in si_poll.dates:
             fig.add_vline(
                 x=d,
                 line_dash="dot",
@@ -1175,11 +1166,7 @@ def plot_time_merit_profile_all_polls(df, aggregation, on_rolling_data: bool = F
     )
 
     # Title and detailed
-    date = df["end_date"].max()
-    title = (
-        f"<b>Evolution des mentions au jugement majoritaire"
-        + f"<br> pour le candidat {df.candidat.unique().tolist()[0]}</b>"
-    )
+    title = f"<b>Evolution des mentions au jugement majoritaire<br>pour le candidat {si.df.candidat.unique().tolist()[0]}</b>"
     fig.update_layout(title=title, title_x=0.5)
     fig = _add_image_to_fig(fig, x=1.1, y=0.15, sizex=0.25, sizey=0.25)
 

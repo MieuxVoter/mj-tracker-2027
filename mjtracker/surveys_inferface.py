@@ -78,11 +78,11 @@ class SurveysInterface:
         return sorted(dates)
 
     @cached_property
-    def most_recent_dates(self) -> list[str]:
+    def most_recent_date(self) -> str:
         return self.dates[-1]
 
     @cached_property
-    def oldest_dates(self) -> list[str]:
+    def oldest_date(self) -> str:
         return self.dates[0]
 
     @cached_property
@@ -97,6 +97,12 @@ class SurveysInterface:
 
     def select_survey(self, survey_id) -> SurveyInterface:
         return SurveyInterface(self.df[self.df["poll_id"] == survey_id].copy())
+
+    @property
+    def most_recent_survey(self) -> SurveyInterface:
+        """Get the most recent survey."""
+        most_recent_date = self.most_recent_date
+        return SurveyInterface(self.df[self.df["end_date"] == most_recent_date].copy())
 
     def select_polling_organization(self, polling_organization: PollingOrganizations) -> "SurveysInterface":
         """Select surveys from a specific polling organization."""

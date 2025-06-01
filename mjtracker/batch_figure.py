@@ -6,8 +6,8 @@ from .plots import (
     plot_time_merit_profile,
     plot_time_merit_profile_all_polls,
     plot_ranked_time_merit_profile,
-    export_fig,
 )
+from .plot_utils import export_fig
 from .utils import (
     get_list_survey,
     get_grades,

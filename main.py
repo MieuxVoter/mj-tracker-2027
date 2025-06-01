@@ -9,7 +9,13 @@ from mjtracker.batch_figure import (
     batch_ranked_time_merit_profile,
     batch_comparison_intention,
 )
-from mjtracker.batch_plots import batch_merit_profile as bmp, batch_ranking as br, batch_time_merit_profile as btmp
+from mjtracker.batch_plots import (
+    batch_merit_profile as bmp,
+    batch_ranking as br,
+    batch_time_merit_profile as btmp,
+    batch_ranked_time_merit_profile as brtmp,
+    batch_time_merit_profile_all as btmpa,
+)
 from mjtracker.smp_data import SMPData
 from mjtracker.misc.enums import AggregationMode, PollingOrganizations, UntilRound
 from mjtracker import SurveysInterface
@@ -37,45 +43,18 @@ def main(args: Arguments):
 
     si = SurveysInterface.load(
         args.csv,
-        polling_organization=PollingOrganizations.IPSOS,
+        polling_organization=PollingOrganizations.ALL,
     )
     si.to_no_opinion_surveys()
+    si.aggregate(aggregation_mode)
     si.apply_mj()
     df = si.df
 
-    # bmp(si, args, auto_text=False)
-    # br(si, args, on_rolling_data=False)
+    bmp(si, args, auto_text=False)
+    br(si, args, on_rolling_data=False)
     btmp(si, args, aggregation_mode, polls=PollingOrganizations.ALL)
-
-    # if not args.test:
-    # generate ranking figures
-    # batch_ranking(df, args)
-    #     # # generate comparison ranking figures
-    #     batch_comparison_ranking(df, smp_data, args)
-    #     # # # generate time merit profile figures
-    # batch_time_merit_profile(df, args, aggregation_mode, polls=PollingOrganizations.ALL)
-    # # # generate ranked time merit profile figures
-    # batch_ranked_time_merit_profile(df, args, aggregation_mode, polls=PollingOrganizations.IPSOS)
-    #     # batch_ranked_time_merit_profile(df, args, aggregation_mode, polls=PollingOrganizations.ALL)
-    #     # # comparison uninominal per candidates
-    # batch_comparison_intention(df, smp_data, args, aggregation)
-    #
-    #     # aggregation = AggregationMode.FOUR_MENTIONS
-    #     # df = load_surveys(
-    #     #     args.csv,
-    #     #     no_opinion_mode=True,
-    #     #     candidates=Candidacy.ALL_CURRENT_CANDIDATES_WITH_ENOUGH_DATA,
-    #     #     aggregation=aggregation,
-    #     #     polling_organization=PollingOrganizations.ALL,
-    #     #     until_round=UntilRound.FIRST,
-    #     #     rolling_data=True,
-    #     # )
-    #     # # df = apply_mj(df, rolling_mj=False)
-    #     # df = apply_mj(df, rolling_mj=True)
-    #     # batch_time_merit_profile_all(df, args, aggregation, on_rolling_data=False)
-    #     # batch_time_merit_profile_all(df, args, aggregation, on_rolling_data=True)
-    #     # batch_comparison_ranking(df, smp_data, args, on_rolling_data=True)
-    #     batch_ranked_time_merit_profile(df, args, aggregation_mode, on_rolling_data=False)
+    brtmp(si, args, aggregation_mode, polls=PollingOrganizations.ALL)
+    btmpa(si, args, aggregation_mode)
 
 
 if __name__ == "__main__":

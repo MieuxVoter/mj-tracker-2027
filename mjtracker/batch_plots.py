@@ -1,16 +1,13 @@
 from typing import Iterable
 
 from .surveys_inferface import SurveysInterface
-from .plots import (
-    plot_merit_profiles,
-    ranking_plot,
-    comparison_ranking_plot,
-    plot_time_merit_profile,
-    plot_time_merit_profile_all_polls,
-    plot_ranked_time_merit_profile,
-    export_fig,
+from .plot_utils import export_fig
+from .plots_v2 import (
+    plot_merit_profiles as pmp,
+    ranking_plot as rkp,
+    plot_time_merit_profile as ptmp,
+    plot_ranked_time_merit_profile as prtmp,
 )
-from .plots_v2 import plot_merit_profiles as pmp, ranking_plot as rkp, plot_time_merit_profile as ptmp
 from .misc.enums import PollingOrganizations, AggregationMode
 from .smp_data import SMPData
 
@@ -110,10 +107,8 @@ def batch_ranked_time_merit_profile(
         roll = "_roll" if on_rolling_data else ""
 
         if args.ranked_time_merit_profile:
-            fig = plot_ranked_time_merit_profile(
-                si_poll.df,
-                source=si_poll.sources_string,
-                sponsor=si_poll.sponsors_string,
+            fig = prtmp(
+                si_poll,
                 show_no_opinion=True,
                 on_rolling_data=on_rolling_data,
             )
@@ -134,9 +129,7 @@ def batch_time_merit_profile_all(si: SurveysInterface, args, aggregation, on_rol
         if temp_df.empty:
             continue
         if args.time_merit_profile:
-            fig = plot_time_merit_profile(
-                temp_df, source=si.sources_string, sponsor=None, on_rolling_data=on_rolling_data
-            )
+            fig = ptmp(si_candidate)
             filename = f"time_merit_profile{aggregation.string_label}_{candidate}{roll}"
             print(filename)
             export_fig(fig, args, filename)
