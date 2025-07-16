@@ -1025,7 +1025,7 @@ def plot_ranked_time_merit_profile(
 ) -> go.Figure:
     # Candidat list sorted the rank in the last poll
     si_most_recent = si.most_recent_survey
-    si_most_recent.df.sort_values(by="rang")
+    si_most_recent.df = si_most_recent.df.sort_values(by="rang")
     titles_candidates = [f"{c} {rank2str(i+1)}" for i, c in enumerate(si_most_recent.candidates)]
 
     # size of the figure
@@ -1044,7 +1044,7 @@ def plot_ranked_time_merit_profile(
     )
 
     show_legend = True
-    for row, col, c in zip(idx_rows, idx_cols, si.candidates):
+    for row, col, c in zip(idx_rows, idx_cols, si_most_recent.candidates):
         fig = plot_time_merit_profile(
             si=si.select_candidate(c),
             fig=fig,

@@ -112,7 +112,7 @@ def batch_ranked_time_merit_profile(
             fig = prtmp(
                 si_poll,
                 show_no_opinion=True,
-                on_rolling_data=on_rolling_data,
+                on_rolling_data=filtered,
             )
             filename = f"ranked_time_merit_profile{aggregation.string_label}_{si_poll.sources_string}{filtered_str}"
             print(filename)

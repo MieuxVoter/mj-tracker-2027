@@ -35,7 +35,11 @@ class SurveysInterface:
         if polling_organization is None:
             polling_organization = PollingOrganizations.ALL
 
-        df_surveys = pd.read_csv(csv_path, na_filter=False)
+        df_surveys = pd.read_csv(
+            csv_path,
+            na_filter=False,
+        )
+        # df_surveys.reset_index(drop=True, inplace=True)
 
         # sanity conversions
         for i in range(7):
