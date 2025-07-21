@@ -205,6 +205,8 @@ def export_fig(fig: go.Figure, args, filename: str):
         fig.write_html(f"{args.dest}/{filename}.html", config=dict(displaylogo=False))
     if args.png:
         fig.write_image(f"{args.dest}/{filename}.png")
+    if args.svg:
+        fig.write_image(f"{args.dest}/{filename}.svg")
     if args.json:
         # dont resize the figure to handle react.js and remove interactive mode for legends
         fig.update_layout(width=None, height=None, legend_itemclick=False)
