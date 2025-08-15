@@ -263,3 +263,18 @@ class SurveysInterface:
             for survey_id in self.surveys
         ]
         self.df = pd.concat([df for df in all_df], ignore_index=True)
+
+    def apply_approval(self, up_to: str):
+
+        # Compute the rank for each survey
+        col_rank = "rang"
+        self.df[col_rank] = None
+
+        all_df = [
+            SurveyInterface(self.df[self.df["poll_id"] == survey_id].copy()).apply_approval(
+                up_to=up_to,
+                rolling_mj=False,
+            )
+            for survey_id in self.surveys
+        ]
+        self.df = pd.concat([df for df in all_df], ignore_index=True)

@@ -41,7 +41,7 @@ def batch_merit_profile(si: SurveysInterface, args, auto_text: bool = False):
             export_fig(fig, args, filename)
 
 
-def batch_ranking(si: SurveysInterface, args, filtered: bool = False):
+def batch_ranking(si: SurveysInterface, args, filtered: bool = False, show_grade_area: bool = False):
     for poll in PollingOrganizations:
         si_poll = si.select_polling_organization(poll)
         if si_poll.df.empty:
@@ -50,7 +50,7 @@ def batch_ranking(si: SurveysInterface, args, filtered: bool = False):
         if args.ranking_plot:
             fig = rkp(
                 si_poll,
-                show_grade_area=True,
+                show_grade_area=show_grade_area,
                 breaks_in_names=True,
                 show_best_grade=False,
             )

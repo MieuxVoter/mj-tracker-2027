@@ -378,6 +378,72 @@ class SurveyInterface:
 
         return self.df
 
+    def apply_approval(self, up_to: str, rolling_mj: bool = False):
+        """
+        Apply the Approval rule to the survey data.
+        This method calculates the approval percentage for each candidate based on their intentions.
+        """
+        id_mention = self.grades.index(up_to) if up_to != "last" else self.nb_grades
+
+
+        df_with_rank = self._sort_candidates_approval(
+            up_to=id_mention,
+            col_rank="rang_glissant" if rolling_mj else "rang",
+        )
+        return df_with_rank
+
+    def _sort_candidates_approval(
+        self,
+        up_to: int,
+        col_rank: str = None,
+    ):
+        """
+        Reindexing candidates in the dataFrame following Approval rules
+
+        Parameters
+        ----------
+        up_to : int
+            The mention to sum up to. Can be "last" for all mentions or a specific mention number.
+            from 0 to nb_grades-1.
+        col_rank: str
+            rank col to considered (ex: rang or rang_glissant)
+        official_lib: bool
+            if we use the official majority judgment lib from MieuxVoter
+        Returns
+        -------
+        Return the DataFrame df sorted with the rank within Approval rules.
+        """
+        col_rank = "rang" if col_rank is None else col_rank
+        col_approval = "approbation"
+
+        # Calculer l'approbation pour chaque candidat
+        approval = self.sum_intentions(up_to=up_to)
+
+        # Vérifier si la colonne d'approbation existe, sinon la créer
+        if col_approval not in self.df.columns:
+            self.df[col_approval] = None
+
+        # Créer un DataFrame temporaire avec les scores d'approbation et les candidats
+        temp_df = pd.DataFrame({
+            'candidate': self.df['candidate'],
+            'approval_score': approval
+        })
+
+        # Trier par score d'approbation décroissant
+        sorted_temp_df = temp_df.sort_values('approval_score', ascending=False)
+
+        # Attribuer les rangs et scores d'approbation
+        for rank, (_, row) in enumerate(sorted_temp_df.iterrows(), 1):
+            candidate = row['candidate']
+            score = row['approval_score']
+            idx = np.where(self.df["candidate"] == candidate)[0][0]
+            self.df.iat[idx, self.df.columns.get_loc(col_rank)] = rank
+            self.df.iat[idx, self.df.columns.get_loc(col_approval)] = score
+
+        self.df = self.df.sort_values(by=col_rank, na_position="last")  # Handle NAs in rank
+
+        return self.df
+
     @cached_property
     def intentions(self):
         colheaders = ["candidate"] + self._intentions_colheaders
