@@ -1,7 +1,7 @@
 from pathlib import Path
 import tap
 from mjtracker.batch_plots import (
-    batch_merit_profile,
+    batch_approval_profile,
     batch_ranking,
     batch_time_merit_profile,
     batch_ranked_time_merit_profile,
@@ -21,7 +21,7 @@ class Arguments(tap.Tap):
     ranked_time_merit_profile: bool = True
     comparison_intention: bool = True
     test: bool = False
-    show: bool = False
+    show: bool = True
     html: bool = False
     png: bool = False
     json: bool = True
@@ -51,8 +51,8 @@ def main(args: Arguments):
     si.apply_approval(up_to="plutôt satisfait")
 
     # # generate all the graphs
-    # batch_merit_profile(si, args, auto_text=False)
-    batch_ranking(si, args, filtered=filtered)
+    batch_approval_profile(si, args, auto_text=True)
+    # batch_ranking(si, args, filtered=filtered)
     # batch_time_merit_profile(si, args, aggregation_mode, polls=PollingOrganizations.ALL, filtered=filtered)
     # batch_ranked_time_merit_profile(si, args, aggregation_mode, polls=PollingOrganizations.ALL, filtered=filtered)
     # batch_time_merit_profile_all(si, args, aggregation_mode, filtered=filtered)

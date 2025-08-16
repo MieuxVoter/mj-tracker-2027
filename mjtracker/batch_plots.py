@@ -8,6 +8,7 @@ from .plots_v2 import (
     plot_time_merit_profile as ptmp,
     plot_ranked_time_merit_profile as prtmp,
     plot_time_merit_profile_all_polls,
+    plot_approval_profiles
 )
 from .misc.enums import PollingOrganizations, AggregationMode
 from .smp_data import SMPData
@@ -40,6 +41,32 @@ def batch_merit_profile(si: SurveysInterface, args, auto_text: bool = False):
             print(filename)
             export_fig(fig, args, filename)
 
+def batch_approval_profile(si: SurveysInterface, args, auto_text: bool = False):
+    """
+    Plot merit profiles for all polls
+
+    Parameters
+    ----------
+    si : SurveysInterface
+        containing the data of the polls
+    args : Namespace
+        containing the arguments
+    auto_text : bool
+        If True, the intention of grade is automatically generated on the merit profile plot
+    """
+
+    for survey_id in si.surveys:
+        si_survey = si.select_survey(survey_id)
+
+        if args.merit_profiles:
+            fig = plot_approval_profiles(
+                si=si_survey,
+                auto_text=auto_text,
+                show_no_opinion=True,
+            )
+            filename = f"{survey_id}"
+            print(filename)
+            export_fig(fig, args, filename)
 
 def batch_ranking(si: SurveysInterface, args, filtered: bool = False, show_grade_area: bool = False):
     for poll in PollingOrganizations:

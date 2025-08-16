@@ -218,6 +218,92 @@ def plot_merit_profiles_in_number(
     return fig
 
 
+def plot_approval_profiles(
+    si: SurveyInterface,
+    auto_text: bool = True,
+    font_size: int = 20,
+    show_no_opinion: bool = True,
+) -> go.Figure:
+
+    color_rgb = (36, 0, 253)
+
+    color_dict = {"approbation": f"rgb{str(color_rgb)}"}
+    fig = px.bar(
+        si.df.copy().sort_values(by="rang", ascending=False, na_position="last"),
+        x="approbation",
+        y="candidate",
+        orientation="h",
+        text_auto=False,
+        color_discrete_map=color_dict,
+    )
+
+    fig.update_traces(textfont_size=font_size, textangle=0, textposition="auto", cliponaxis=False, width=0.5)
+
+    # Legend
+    fig.update_layout(
+        legend_title_text=None,
+        autosize=True,
+        legend=dict(orientation="h", xanchor="center", x=0.5, y=-0.05),  # 50 % of the figure width
+    )
+
+    fig.update(data=[{"hovertemplate": "Approbation: %{x}<br>Candidat: %{y}"}])
+
+    # no background
+    fig.update_layout(paper_bgcolor="rgba(255,255,255,1)", plot_bgcolor="rgba(255,255,255,1)")
+
+    # xticks and y ticks
+    yticktext = si.formated_ranked_candidates(show_no_opinion)
+    yticktext.reverse()
+    ycategoryarray = si.ranked_candidates
+    ycategoryarray.reverse()
+    fig.update_layout(
+        xaxis=dict(
+            range=[0, 101],
+            tickmode="array",
+            tickvals=[0, 20, 40, 60, 80, 100],
+            ticktext=["0%", "20%", "40%", "60%", "80%", "100%"],
+            tickfont_size=font_size,
+            title="",
+            gridcolor="black",
+            gridwidth=1,
+            griddash="solid",
+        ),
+        yaxis=dict(
+            tickfont_size=font_size * 0.75,
+            title="",
+            automargin=True,
+            ticklabelposition="outside left",
+            ticksuffix="   ",
+            tickmode="array",
+            tickvals=[i for i in range(si.nb_candidates)],
+            ticktext=yticktext,
+            categoryorder="array",
+            categoryarray=ycategoryarray,
+        ),
+    )
+
+    # Title
+    title = "<b>Evaluation à l'approbation</b>"
+
+    date_str = f"date: {si.end_date}, " if si.end_date is not None else ""
+    source_str = f"source: {si.source}" if si.source is not None else ""
+    source_str += ", " if si.sponsor is not None else ""
+    sponsor_str = f"commanditaire: {si.sponsor}" if si.sponsor is not None else ""
+    subtitle = f"<br><i>{date_str}{source_str}{sponsor_str}</i>"
+
+    fig.update_layout(title=title + subtitle, title_x=0.5)
+
+    # font family
+    fig.update_layout(font_family="arial")
+
+    fig = _add_image_to_fig(fig, x=0.9, y=1.01, sizex=0.15, sizey=0.15)
+
+    # size of the figure
+    fig.update_layout(width=1000, height=900)
+
+    return fig
+
+
 def ranking_plot(
     si: SurveysInterface,
     on_rolling_data: bool = False,
