@@ -1296,3 +1296,204 @@ def add_no_opinion_time_merit_profile(
         col=col,
     )
     return fig
+
+
+def plot_time_approval_profiles(
+    si: SurveysInterface,
+    on_rolling_data: bool = False,
+    show_rank: bool = True,
+    show_no_opinion: bool = True,
+    breaks_in_names: bool = True,
+    fig: go.Figure = None,
+    row=None,
+    col=None,
+) -> go.Figure:
+
+    COLORS = load_colors()
+
+    if fig is None:
+        fig = go.Figure()
+
+    if not si.is_aggregated:
+        raise ValueError("The ranking plot requires the data to be aggregated into a unique set of grades.")
+
+    df = si.df.copy().sort_values(by=["end_date", "rang"])
+
+    df_with_offsets = add_vertical_offset(df, "candidate", "end_date", "approbation")
+
+    for candidate in si.candidates:
+        color = COLORS.get(candidate, {"couleur": "black"})["couleur"]
+
+        temp_df = df_with_offsets[df_with_offsets["candidate"] == candidate].copy().sort_values(by="end_date")
+        fig.add_trace(
+            go.Scatter(
+                x=temp_df["end_date"],
+                y=temp_df["approbation"],
+                mode="lines",
+                name=candidate,
+                marker=dict(color=color),
+                showlegend=False,
+                legendgroup=None,
+            ),
+            row=row,
+            col=col,
+        )
+
+        fig.add_trace(
+            go.Scatter(
+                x=temp_df["end_date"].iloc[0:1],
+                y=temp_df["approbation"].iloc[0:1],
+                mode="markers",
+                name=candidate,
+                marker=dict(color=color),
+                showlegend=False,
+                legendgroup=None,
+            ),
+            row=row,
+            col=col,
+        )
+
+        fig.add_trace(
+            go.Scatter(
+                x=temp_df["end_date"].iloc[-1:],
+                y=temp_df["approbation"].iloc[-1:],
+                mode="markers",
+                name=candidate,
+                marker=dict(color=color),
+                showlegend=False,
+                legendgroup=None,
+            ),
+            row=row,
+            col=col,
+        )
+
+        # PREPARE ANNOTATIONS - name with break btw name and surname
+        xref = f"x{col}" if row is not None else None
+        yref = f"y{row}" if row is not None else None
+        name_label = _extended_name_annotations(
+            temp_df,
+            candidate=candidate,
+            show_rank=False,
+            show_best_grade=False,
+            show_no_opinion=False,
+            breaks_in_names=False,
+        )
+        size_annotations = 12
+        name_shift = 10
+
+        # first dot annotation
+        if temp_df["end_date"].iloc[-1] != temp_df["end_date"].iloc[0]:
+            fig["layout"]["annotations"] += (
+                dict(
+                    x=temp_df["end_date"].iloc[0],
+                    y=temp_df["approbation"].iloc[0] + temp_df["y_offset"].iloc[0],
+                    xanchor="right",
+                    xshift=-name_shift,
+                    text=f"{name_label}",
+                    font=dict(family="Arial", size=size_annotations, color=color),
+                    showarrow=False,
+                    xref=xref,
+                    yref=yref,
+                ),
+            )
+
+        # Nice name label
+        extended_name_label = _extended_name_annotations(
+            temp_df,
+            candidate=candidate,
+            show_rank=show_rank,
+            show_no_opinion=show_no_opinion,
+            breaks_in_names=False,
+        )
+
+        # last dot annotation
+        # only if the last dot correspond to the last polls
+        if df["end_date"].max() == temp_df["end_date"].iloc[-1]:
+            fig["layout"]["annotations"] += (
+                dict(
+                    x=temp_df["end_date"].iloc[-1],
+                    y=temp_df["approbation"].iloc[-1] + temp_df["y_offset"].iloc[-1],
+                    xanchor="left",
+                    xshift=name_shift,
+                    yanchor="middle",
+                    text=extended_name_label,
+                    font=dict(family="Arial", size=size_annotations, color=color),
+                    showarrow=False,
+                    xref=xref,
+                    yref=yref,
+                ),
+            )
+
+    # fig = _add_election_date(fig, y=0.25, xshift=10)
+
+    fig.update_layout(
+        # yaxis=dict(autorange="reversed", tick0=1, dtick=1, visible=False),
+        # annotations=annotations,
+        # plot_bgcolor="white",
+        showlegend=True,
+        yaxis=dict(
+            range=[
+                # min - 1,5, # max + 1.5
+                df_with_offsets["approbation"].min() - 0.5,
+                df_with_offsets["approbation"].max() + 0.5,
+            ],
+        ),
+    )
+
+    # Title
+    title = "<b>Classement des candidats à l'élection présidentielle 2027<br> à l'approbation</b> "
+
+    end_date = df["end_date"].max()
+    date_str = f"date: {end_date}, " if end_date is not None else ""
+    source_str = f"source: {si.sources_string}" if si.sources_string is not None else ""
+    source_str += ", " if si.sponsors_string is not None else ""
+    sponsor_str = f"commanditaire: {si.sponsors_string}" if si.sponsors_string is not None else ""
+    subtitle = f"<br><i>{source_str}{sponsor_str}, dernier sondage: {date_str}</i>"
+
+    fig.update_layout(title=title + subtitle, title_x=0.5)
+
+    fig = _add_image_to_fig(fig, x=1.00, y=1.05, sizex=0.10, sizey=0.10, xanchor="right")
+
+    # Legend
+    fig.update_layout(
+        width=1200,
+        height=1200,
+        autosize=True,
+        legend=dict(orientation="h", xanchor="center", x=0.5, y=-0.05),  # 50 % of the figure width/
+    )
+    return fig
+
+
+def add_vertical_offset(df, candidate_column, date_column, value_column, offset=1.5):
+    # Créer une copie du DataFrame avec les colonnes pertinentes
+    result_df = df.copy()
+
+    # Ajouter une colonne pour stocker le décalage
+    result_df["y_offset"] = 0.0
+
+    # Grouper par date
+    for date, group in df.groupby(date_column):
+        # Créer un dictionnaire pour stocker les positions utilisées à cette date
+        used_positions = {}
+
+        # Trier par valeur pour traiter d'abord les candidats avec des valeurs similaires
+        for _, row in group.sort_values(value_column).iterrows():
+            value = row[value_column]
+            candidate = row[candidate_column]
+
+            # Arrondir la valeur pour regrouper les positions proches
+            rounded_value = round(value, 1)
+
+            # Vérifier si cette position est déjà utilisée
+            if rounded_value in used_positions:
+                # Ajouter un décalage
+                used_positions[rounded_value] += 0.25
+                y_offset = (used_positions[rounded_value] - 1) * offset
+                result_df.loc[
+                    (result_df[date_column] == date) & (result_df[candidate_column] == candidate), "y_offset"
+                ] = y_offset
+            else:
+                # Première utilisation de cette position
+                used_positions[rounded_value] = 1
+
+    return result_df

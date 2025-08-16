@@ -6,6 +6,7 @@ from mjtracker.batch_plots import (
     batch_time_merit_profile,
     batch_ranked_time_merit_profile,
     batch_time_merit_profile_all,
+    batch_time_approval_profiles,
 )
 
 # from mjtracker.smp_data import SMPData # not available yet.
@@ -51,7 +52,8 @@ def main(args: Arguments):
     si.apply_approval(up_to="plutôt satisfait")
 
     # # generate all the graphs
-    batch_approval_profile(si, args, auto_text=True)
+    # batch_approval_profile(si, args, auto_text=True)
+    batch_time_approval_profiles(si, args, aggregation_mode, polls=PollingOrganizations.IPSOS)
     # batch_ranking(si, args, filtered=filtered)
     # batch_time_merit_profile(si, args, aggregation_mode, polls=PollingOrganizations.ALL, filtered=filtered)
     # batch_ranked_time_merit_profile(si, args, aggregation_mode, polls=PollingOrganizations.ALL, filtered=filtered)

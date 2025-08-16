@@ -8,7 +8,8 @@ from .plots_v2 import (
     plot_time_merit_profile as ptmp,
     plot_ranked_time_merit_profile as prtmp,
     plot_time_merit_profile_all_polls,
-    plot_approval_profiles
+    plot_approval_profiles,
+    plot_time_approval_profiles,
 )
 from .misc.enums import PollingOrganizations, AggregationMode
 from .smp_data import SMPData
@@ -41,6 +42,7 @@ def batch_merit_profile(si: SurveysInterface, args, auto_text: bool = False):
             print(filename)
             export_fig(fig, args, filename)
 
+
 def batch_approval_profile(si: SurveysInterface, args, auto_text: bool = False):
     """
     Plot merit profiles for all polls
@@ -67,6 +69,7 @@ def batch_approval_profile(si: SurveysInterface, args, auto_text: bool = False):
             filename = f"{survey_id}"
             print(filename)
             export_fig(fig, args, filename)
+
 
 def batch_ranking(si: SurveysInterface, args, filtered: bool = False, show_grade_area: bool = False):
     for poll in PollingOrganizations:
@@ -114,6 +117,23 @@ def batch_time_merit_profile(
             filename = f"time_merit_profile_comparison{aggregation.string_label}_{candidate}"
             print(filename)
             export_fig(fig, args, filename)
+
+
+def batch_time_approval_profiles(
+    si: SurveysInterface, args, aggregation, polls: PollingOrganizations = PollingOrganizations
+):
+    # check if polls is iterable
+    if not isinstance(polls, Iterable):
+        polls = [polls]
+    for poll in polls:
+        if poll == PollingOrganizations.ALL and aggregation == AggregationMode.NO_AGGREGATION:
+            continue
+        si_poll = si.select_polling_organization(poll)
+
+        fig = plot_time_approval_profiles(si, aggregation)
+        filename = f"time_approval_profile{aggregation.string_label}_{si_poll.sources_string}"
+        print(filename)
+        export_fig(fig, args, filename)
 
 
 def batch_ranked_time_merit_profile(
