@@ -63,7 +63,7 @@ def plot_merit_profiles(
     # todo: need to display grades in hovertemplate.
 
     # no background
-    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+    fig.update_layout(paper_bgcolor="rgba(255,255,255,1)", plot_bgcolor="rgba(255,255,255,1)")
 
     # xticks and y ticks
     yticktext = si.formated_ranked_candidates(show_no_opinion)
@@ -1497,3 +1497,166 @@ def add_vertical_offset(df, candidate_column, date_column, value_column, offset=
                 used_positions[rounded_value] = 1
 
     return result_df
+
+
+def plot_ranked_time_approval_profile(
+    si: SurveysInterface,
+    show_no_opinion: bool = True,
+    on_rolling_data: bool = False,
+) -> go.Figure:
+    # Candidat list sorted the rank in the last poll
+    si_most_recent = si.most_recent_survey
+    si_most_recent.df = si_most_recent.df.sort_values(by="rang")
+    titles_candidates = [f"{c} {rank2str(i+1)}" for i, c in enumerate(si_most_recent.candidates)]
+
+    # size of the figure
+    n_rows, n_cols = _generate_windows_size(len(si_most_recent.candidates))
+    idx_rows, idx_cols = np.unravel_index([i for i in range(si_most_recent.nb_candidates)], (n_rows, n_cols))
+    idx_rows += 1
+    idx_cols += 1
+    fig = make_subplots(
+        rows=n_rows,
+        cols=n_cols,
+        shared_yaxes=True,
+        shared_xaxes=True,
+        subplot_titles=titles_candidates,
+        vertical_spacing=0.05,
+        horizontal_spacing=0.05,
+    )
+
+    show_legend = True
+    for row, col, c in zip(idx_rows, idx_cols, si_most_recent.candidates):
+        fig = plot_time_approval_profile(
+            si=si.select_candidate(c),
+            fig=fig,
+            show_legend=show_legend,
+            no_layout=True,
+            row=row,
+            col=col,
+        )
+        fig.update_yaxes(range=[0, 50], row=row, col=col, title="Approbation (%)" if col == 1 else "")
+        show_legend = False
+
+    fig.update_layout(
+        yaxis_range=(0, 50),
+        width=1200,
+        height=900 if n_rows > 1 else 450,
+        legend_title_text="Approbation",
+        autosize=True,
+        legend=dict(orientation="h", xanchor="center", x=0.5, y=-0.05),  # 50 % of the figure width/
+        yaxis=dict(
+            tickfont_size=15,
+            title="Approbation (%)",  # candidat
+            automargin=True,
+        ),
+        plot_bgcolor="white",
+    )
+
+    # Title
+    pop_str = " - population: " + str(si.df["population"].iloc[0]) if "population" in si.df.columns else ""
+    title = f"<b>Classement des candidats à l'approbation</b>{pop_str}"
+
+    source_str = f"source: {si.sources_string}" if si.sources_string is not None else ""
+    source_str += ", " if si.sponsors_string is not None else ""
+    sponsor_str = f"commanditaire: {si.sponsors_string}" if si.sponsors_string is not None else ""
+    subtitle = f"<br><i>{source_str}{sponsor_str}, dernier sondage: {si.most_recent_date}.</i>"
+
+    fig.update_layout(title=title + subtitle, title_x=0.5)
+    fig = _add_image_to_fig(fig, x=1.00, y=1.05, sizex=0.10, sizey=0.10, xanchor="right")
+
+    return fig
+
+
+def plot_time_approval_profile(
+    si: SurveyInterface,
+    fig: go.Figure = None,
+    show_legend: bool = True,
+    show_logo: bool = True,
+    no_layout: bool = False,
+    row: int = None,
+    col: int = None,
+) -> go.Figure:
+
+    if fig is None:
+        fig = go.Figure()
+
+    si.df.sort_values(by="end_date")
+
+    COLORS = load_colors()
+    candidate_color = COLORS.get(si.df.candidate.unique().tolist()[0], {"couleur": "black"})["couleur"]
+
+    # convert to rgba from hex
+    def hex_to_rgba(hex_color, alpha=0.5):
+        """Convertit une couleur hexadécimale (#RRGGBB) en format RGBA."""
+        # Supprimer les guillemets simples ou doubles si présents
+        hex_color = hex_color.strip("'\"")
+
+        # Enlever le # si présent
+        hex_color = hex_color.lstrip("#")
+
+        try:
+            # Format standard #RRGGBB
+            if len(hex_color) == 6:
+                r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+            # Format court #RGB
+            elif len(hex_color) == 3:
+                r, g, b = int(hex_color[0], 16) * 17, int(hex_color[1], 16) * 17, int(hex_color[2], 16) * 17
+            # Autre format non reconnu, utiliser une couleur par défaut
+            else:
+                r, g, b = 0, 0, 0  # Noir
+        except ValueError:
+            # En cas d'erreur de conversion, utiliser une couleur par défaut
+            r, g, b = 0, 0, 0  # Noir
+
+        return f"rgba({r}, {g}, {b}, {alpha})"
+
+    candidate_color_rgba = hex_to_rgba(candidate_color, alpha=0.5)
+
+    fig.add_trace(
+        go.Scatter(
+            x=si.dates,
+            y=si.df["approbation"],
+            hoverinfo="x+y",
+            mode="lines+markers",
+            line=dict(width=0.5, color=candidate_color),
+            stackgroup="one",
+            fillcolor=candidate_color_rgba,
+            name=si.df.candidate.unique().tolist()[0],
+            showlegend=show_legend,
+        ),
+        row=row,
+        col=col,
+    )
+
+    if not no_layout:
+        fig.update_layout(
+            yaxis_range=(0, 50),
+            width=1200,
+            height=800,
+            legend_title_text="Mentions",
+            autosize=True,
+            legend=dict(orientation="h", xanchor="center", x=0.5, y=-0.05),  # 50 % of the figure width
+            yaxis=dict(
+                tickfont_size=15,
+                title="Mentions (%)",
+                automargin=True,
+            ),
+            plot_bgcolor="white",
+        )
+
+        # Title and detailed
+        title = (
+            f"<b>Evolution des mentions à l'approbation"
+            + f"<br> pour le candidat {si.df.candidate.unique().tolist()[0]}</b>"
+        )
+        source_str = f"source: {si.sources_string}" if si.sources is not None else ""
+        source_str += ", " if si.sponsors is not None else ""
+        sponsor_str = f"commanditaire: {si.sponsors_string}" if si.sponsors is not None else ""
+        subtitle = f"<br><i>{source_str}{sponsor_str}, dernier sondage: {si.most_recent_date}.</i>"
+
+        fig.update_layout(title=title + subtitle, title_x=0.5)
+
+        if show_logo:
+            fig = _add_image_to_fig(fig, x=1.00, y=1.05, sizex=0.10, sizey=0.10, xanchor="right")
+
+    return fig

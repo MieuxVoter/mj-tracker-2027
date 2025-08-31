@@ -10,6 +10,7 @@ from .plots_v2 import (
     plot_time_merit_profile_all_polls,
     plot_approval_profiles,
     plot_time_approval_profiles,
+    plot_ranked_time_approval_profile,
 )
 from .misc.enums import PollingOrganizations, AggregationMode
 from .smp_data import SMPData
@@ -164,6 +165,23 @@ def batch_ranked_time_merit_profile(
             filename = f"ranked_time_merit_profile{aggregation.string_label}_{si_poll.sources_string}{filtered_str}"
             print(filename)
             export_fig(fig, args, filename)
+
+
+def batch_ranked_time_approval_profile(
+    si: SurveysInterface, args, aggregation, polls: PollingOrganizations = PollingOrganizations
+):
+    # check if polls is iterable
+    if not isinstance(polls, Iterable):
+        polls = [polls]
+    for poll in polls:
+        if poll == PollingOrganizations.ALL and aggregation == AggregationMode.NO_AGGREGATION:
+            continue
+        si_poll = si.select_polling_organization(poll)
+
+        fig = plot_ranked_time_approval_profile(si_poll, aggregation)
+        filename = f"ranked_time_approval_profile{aggregation.string_label}_{si_poll.sources_string}"
+        print(filename)
+        export_fig(fig, args, filename)
 
 
 def batch_time_merit_profile_all(si: SurveysInterface, args, aggregation, filtered: bool = False):
