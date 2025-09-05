@@ -1524,7 +1524,7 @@ def plot_ranked_time_approval_profile(
         horizontal_spacing=0.05,
     )
 
-    show_legend = True
+    show_legend = False
     for row, col, c in zip(idx_rows, idx_cols, si_most_recent.candidates):
         fig = plot_time_approval_profile(
             si=si.select_candidate(c),
@@ -1535,7 +1535,6 @@ def plot_ranked_time_approval_profile(
             col=col,
         )
         fig.update_yaxes(range=[0, 50], row=row, col=col, title="Approbation (%)" if col == 1 else "")
-        show_legend = False
 
     fig.update_layout(
         yaxis_range=(0, 50),
