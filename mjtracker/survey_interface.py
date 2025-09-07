@@ -357,11 +357,7 @@ class SurveyInterface:
 
         for candidate, best_grade in best_grades.items():
             idx = np.where(self.df["candidate"] == candidate)[0][0]
-            print(grade_list[best_grade], candidate)
             self.df.iat[idx, col_best_grade] = grade_list[best_grade]
-
-            if candidate == "Jean-Luc Mélenchon":
-                print("strop")
 
             if reversed:
                 best_grade = self.nb_grades - 1 - best_grade
@@ -384,7 +380,6 @@ class SurveyInterface:
         This method calculates the approval percentage for each candidate based on their intentions.
         """
         id_mention = self.grades.index(up_to) if up_to != "last" else self.nb_grades
-
 
         df_with_rank = self._sort_candidates_approval(
             up_to=id_mention,
@@ -424,18 +419,15 @@ class SurveyInterface:
             self.df[col_approval] = None
 
         # Créer un DataFrame temporaire avec les scores d'approbation et les candidats
-        temp_df = pd.DataFrame({
-            'candidate': self.df['candidate'],
-            'approval_score': approval
-        })
+        temp_df = pd.DataFrame({"candidate": self.df["candidate"], "approval_score": approval})
 
         # Trier par score d'approbation décroissant
-        sorted_temp_df = temp_df.sort_values('approval_score', ascending=False)
+        sorted_temp_df = temp_df.sort_values("approval_score", ascending=False)
 
         # Attribuer les rangs et scores d'approbation
         for rank, (_, row) in enumerate(sorted_temp_df.iterrows(), 1):
-            candidate = row['candidate']
-            score = row['approval_score']
+            candidate = row["candidate"]
+            score = row["approval_score"]
             idx = np.where(self.df["candidate"] == candidate)[0][0]
             self.df.iat[idx, self.df.columns.get_loc(col_rank)] = rank
             self.df.iat[idx, self.df.columns.get_loc(col_approval)] = score
@@ -517,4 +509,3 @@ class SurveyInterface:
         if candidate not in self.candidates:
             raise ValueError(f"Candidate '{candidate}' not found in the survey.")
         return self.df[self.df["candidate"] == candidate].copy
-

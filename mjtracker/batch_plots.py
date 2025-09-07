@@ -72,7 +72,9 @@ def batch_approval_profile(si: SurveysInterface, args, auto_text: bool = False):
             export_fig(fig, args, filename)
 
 
-def batch_ranking(si: SurveysInterface, args, filtered: bool = False, show_grade_area: bool = False):
+def batch_ranking(
+    si: SurveysInterface, args, filtered: bool = False, show_grade_area: bool = True, voting_str_title: str = ""
+):
     for poll in PollingOrganizations:
         si_poll = si.select_polling_organization(poll)
         if si_poll.df.empty:
@@ -84,6 +86,7 @@ def batch_ranking(si: SurveysInterface, args, filtered: bool = False, show_grade
                 show_grade_area=show_grade_area,
                 breaks_in_names=True,
                 show_best_grade=False,
+                voting_str_title=voting_str_title,
             )
             filtered_str = "_filtered" if filtered else ""
             filename = f"ranking_plot_{poll.name}{filtered_str}"
@@ -105,25 +108,25 @@ def batch_time_merit_profile(
         for candidate in si_poll.candidates:
             si_candidate = si_poll.select_candidate(candidate)
 
-            if args.time_merit_profile:
-                fig = ptmp(si_candidate)
-                filename = f"time_merit_profile{aggregation.string_label}_{candidate}_{si_poll.sources_string}"
-                print(filename)
-                export_fig(fig, args, filename)
-
-    for candidate in si.candidates:
-        temp_df = si.select_candidate(candidate).df
-        if args.time_merit_profile:
-            fig = ptmp(temp_df, aggregation)
-            filename = f"time_merit_profile_comparison{aggregation.string_label}_{candidate}"
+            fig = ptmp(si_candidate)
+            filename = f"time_merit_profile{aggregation.string_label}_{candidate}_{si_poll.sources_string}"
             print(filename)
             export_fig(fig, args, filename)
+
+    # Obsolete code to display all polls in the same graphs, need to update ptmp to another graph.
+    # for candidate in si.candidates:
+    #     temp_si = si.select_candidate(candidate)
+    #
+    #     fig = ptmp(temp_si, aggregation)
+    #     filename = f"time_merit_profile_comparison{aggregation.string_label}_{candidate}"
+    #     print(filename)
+    #     export_fig(fig, args, filename)
 
 
 def batch_time_approval_profiles(
     si: SurveysInterface, args, aggregation, polls: PollingOrganizations = PollingOrganizations
 ):
-    # check if polls is iterable
+    # check if polls are iterable
     if not isinstance(polls, Iterable):
         polls = [polls]
     for poll in polls:

@@ -5,6 +5,7 @@ from seaborn import color_palette
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
+from datetime import timedelta, datetime
 
 from . import SurveyInterface
 from . import SurveysInterface
@@ -12,6 +13,9 @@ from .utils import get_intentions_colheaders, get_candidates, get_grades, rank2s
 from .misc.enums import PollingOrganizations, AggregationMode
 from .color_utils import get_grade_color_palette
 from .plot_utils import load_colors, export_fig, _extended_name_annotations, _add_image_to_fig, _generate_windows_size
+
+LOGO_X_LOCATION = 0.88
+LOGO_Y_LOCATION = 0.965
 
 
 def plot_merit_profiles(
@@ -56,7 +60,7 @@ def plot_merit_profiles(
     fig.update_layout(
         legend_title_text=None,
         autosize=True,
-        legend=dict(orientation="h", xanchor="center", x=0.5, y=-0.05),  # 50 % of the figure width
+        legend=dict(orientation="h", xanchor="center", x=0.5, y=-0.03),  # 50 % of the figure width
     )
 
     fig.update(data=[{"hovertemplate": "Intention: %{x}<br>Candidat: %{y}"}])
@@ -74,8 +78,8 @@ def plot_merit_profiles(
         xaxis=dict(
             range=[0, 100],
             tickmode="array",
-            tickvals=[0, 20, 40, 60, 80, 100],
-            ticktext=["0%", "20%", "40%", "60%", "80%", "100%"],
+            tickvals=[0, 25, 50, 75, 100],
+            ticktext=["0%", "25%", "50%", "75%", "100%"],
             tickfont_size=font_size,
             title="",
         ),
@@ -107,7 +111,7 @@ def plot_merit_profiles(
     # font family
     fig.update_layout(font_family="arial")
 
-    fig = _add_image_to_fig(fig, x=0.9, y=1.01, sizex=0.15, sizey=0.15)
+    fig = _add_image_to_fig(fig, x=LOGO_X_LOCATION, y=LOGO_Y_LOCATION, sizex=0.15, sizey=0.15)
 
     # size of the figure
     fig.update_layout(width=1000, height=900)
@@ -296,7 +300,7 @@ def plot_approval_profiles(
     # font family
     fig.update_layout(font_family="arial")
 
-    fig = _add_image_to_fig(fig, x=0.9, y=1.01, sizex=0.15, sizey=0.15)
+    fig = _add_image_to_fig(fig, x=LOGO_X_LOCATION, y=LOGO_Y_LOCATION, sizex=0.15, sizey=0.15)
 
     # size of the figure
     fig.update_layout(width=1000, height=900)
@@ -312,6 +316,7 @@ def ranking_plot(
     show_no_opinion: bool = True,
     show_grade_area: bool = True,
     breaks_in_names: bool = True,
+    voting_str_title: str = "au jugement majoritaire",
     fig: go.Figure = None,
     row=None,
     col=None,
@@ -342,6 +347,7 @@ def ranking_plot(
         for grade, color in zip(grades, c_rgb):
             temp_df = df[df["mention_majoritaire"] == grade]
             if temp_df.empty:
+                continue
                 fig.add_scatter(
                     x=[x_date[0], x_date[-1], x_date[-1], x_date[0]],
                     y=[0, 0, 0, 0],
@@ -354,7 +360,6 @@ def ranking_plot(
                     row=row,
                     col=col,
                 )
-                continue
 
             y_upper = []
             y_lower = []
@@ -435,22 +440,6 @@ def ranking_plot(
         size_annotations = 12
         name_shift = 10
 
-        # first dot annotation
-        if temp_df["end_date"].iloc[-1] != temp_df["end_date"].iloc[0]:
-            fig["layout"]["annotations"] += (
-                dict(
-                    x=temp_df["end_date"].iloc[0],
-                    y=temp_df["rang"].iloc[0],
-                    xanchor="right",
-                    xshift=-name_shift,
-                    text=f"{name_label}",
-                    font=dict(family="Arial", size=size_annotations, color=color),
-                    showarrow=False,
-                    xref=xref,
-                    yref=yref,
-                ),
-            )
-
         # Nice name label
         extended_name_label = _extended_name_annotations(
             temp_df,
@@ -481,15 +470,24 @@ def ranking_plot(
 
     # fig = _add_election_date(fig, y=0.25, xshift=10)
 
+    margin_one_day = timedelta(days=1)
+
+    # Convert string dates to datetime objects
+    start_date = datetime.strptime(si.dates[0], "%Y-%m-%d")
+    end_date = datetime.strptime(si.dates[-1], "%Y-%m-%d")
+
+    x_range = [start_date - margin_one_day, end_date + 5 * margin_one_day]
+
     fig.update_layout(
         yaxis=dict(autorange="reversed", tick0=1, dtick=1, visible=False),
+        xaxis=dict(range=x_range, tickformat="%m/%Y"),
         # annotations=annotations,
         plot_bgcolor="white",
         showlegend=True,
     )
 
     # Title
-    title = "<b>Classement des candidats à l'élection présidentielle 2027<br> au jugement majoritaire</b> "
+    title = "<b>Classement des candidats à l'élection présidentielle 2027<br>" f"{voting_str_title}</b> "
 
     end_date = df["end_date"].max()
     date_str = f"date: {end_date}, " if end_date is not None else ""
@@ -500,15 +498,15 @@ def ranking_plot(
 
     fig.update_layout(title=title + subtitle, title_x=0.5)
 
-    fig = _add_image_to_fig(fig, x=1.00, y=1.05, sizex=0.10, sizey=0.10, xanchor="right")
+    fig = _add_image_to_fig(fig, x=1.00, y=0.985, sizex=0.10, sizey=0.10, xanchor="right")
 
     # Legend
     fig.update_layout(
         width=1200,
         height=1000,
         legend_title_text="Mentions majoritaires",
-        autosize=True,
-        legend=dict(orientation="h", xanchor="center", x=0.5, y=-0.05),  # 50 % of the figure width/
+        # autosize=True,
+        legend=dict(orientation="h", xanchor="center", x=0.5, y=-0.025),  # 50 % of the figure width/
     )
     return fig
 
