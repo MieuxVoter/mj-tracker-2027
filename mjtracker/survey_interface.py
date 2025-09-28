@@ -472,6 +472,21 @@ class SurveyInterface:
                 f"Invalid value for 'up_to': {up_to}. Must be 'last' or an integer between 1 and {self.nb_grades}."
             )
 
+    def cumulative_intentions(self):
+        """
+        Returns a DataFrame with cumulative intentions for each candidate.
+        Each column represents the cumulative sum of intentions up to that mention.
+        """
+        cumulative_df = pd.DataFrame()
+        cumulative_df["candidate"] = self.df["candidate"]
+
+        cumulative_sum = np.zeros(len(self.df))
+        for i, col in enumerate(self._intentions_colheaders):
+            cumulative_sum += self.df[col]
+            cumulative_df[f"cumulative_intention_mention_{i + 1}"] = cumulative_sum
+
+        return cumulative_df
+
     @cached_property
     def candidates(self):
         return self.df["candidate"].to_list()

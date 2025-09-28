@@ -23,13 +23,13 @@ class Arguments(tap.Tap):
     ranked_time_merit_profile: bool = True
     comparison_intention: bool = True
     test: bool = False
-    show: bool = True
+    show: bool = False
     html: bool = False
-    png: bool = False
+    png: bool = True
     json: bool = True
     svg: bool = False
     csv: Path = Path("../mj-database-2027/mj2027.csv")
-    dest: Path = Path("../trackerapp/data/graphs/")
+    dest: Path = Path("../trackerapp/data/graphs/approval")
 
 
 def main(args: Arguments):
