@@ -5,6 +5,7 @@ from seaborn import color_palette
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
+from datetime import timedelta, datetime
 
 from . import SurveyInterface
 from . import SurveysInterface
@@ -12,6 +13,9 @@ from .utils import get_intentions_colheaders, get_candidates, get_grades, rank2s
 from .misc.enums import PollingOrganizations, AggregationMode
 from .color_utils import get_grade_color_palette
 from .plot_utils import load_colors, export_fig, _extended_name_annotations, _add_image_to_fig, _generate_windows_size
+
+LOGO_X_LOCATION = 0.88
+LOGO_Y_LOCATION = 0.965
 
 
 def plot_merit_profiles(
@@ -56,14 +60,14 @@ def plot_merit_profiles(
     fig.update_layout(
         legend_title_text=None,
         autosize=True,
-        legend=dict(orientation="h", xanchor="center", x=0.5, y=-0.05),  # 50 % of the figure width
+        legend=dict(orientation="h", xanchor="center", x=0.5, y=-0.03),  # 50 % of the figure width
     )
 
     fig.update(data=[{"hovertemplate": "Intention: %{x}<br>Candidat: %{y}"}])
     # todo: need to display grades in hovertemplate.
 
     # no background
-    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+    fig.update_layout(paper_bgcolor="rgba(255,255,255,1)", plot_bgcolor="rgba(255,255,255,1)")
 
     # xticks and y ticks
     yticktext = si.formated_ranked_candidates(show_no_opinion)
@@ -74,8 +78,8 @@ def plot_merit_profiles(
         xaxis=dict(
             range=[0, 100],
             tickmode="array",
-            tickvals=[0, 20, 40, 60, 80, 100],
-            ticktext=["0%", "20%", "40%", "60%", "80%", "100%"],
+            tickvals=[0, 25, 50, 75, 100],
+            ticktext=["0%", "25%", "50%", "75%", "100%"],
             tickfont_size=font_size,
             title="",
         ),
@@ -107,7 +111,7 @@ def plot_merit_profiles(
     # font family
     fig.update_layout(font_family="arial")
 
-    fig = _add_image_to_fig(fig, x=0.9, y=1.01, sizex=0.15, sizey=0.15)
+    fig = _add_image_to_fig(fig, x=LOGO_X_LOCATION, y=LOGO_Y_LOCATION, sizex=0.15, sizey=0.15)
 
     # size of the figure
     fig.update_layout(width=1000, height=900)
@@ -218,6 +222,92 @@ def plot_merit_profiles_in_number(
     return fig
 
 
+def plot_approval_profiles(
+    si: SurveyInterface,
+    auto_text: bool = True,
+    font_size: int = 20,
+    show_no_opinion: bool = True,
+) -> go.Figure:
+
+    color_rgb = (36, 0, 253)
+
+    color_dict = {"approbation": f"rgb{str(color_rgb)}"}
+    fig = px.bar(
+        si.df.copy().sort_values(by="rang", ascending=False, na_position="last"),
+        x="approbation",
+        y="candidate",
+        orientation="h",
+        text_auto=False,
+        color_discrete_map=color_dict,
+    )
+
+    fig.update_traces(textfont_size=font_size, textangle=0, textposition="auto", cliponaxis=False, width=0.5)
+
+    # Legend
+    fig.update_layout(
+        legend_title_text=None,
+        autosize=True,
+        legend=dict(orientation="h", xanchor="center", x=0.5, y=-0.05),  # 50 % of the figure width
+    )
+
+    fig.update(data=[{"hovertemplate": "Approbation: %{x}<br>Candidat: %{y}"}])
+
+    # no background
+    fig.update_layout(paper_bgcolor="rgba(255,255,255,1)", plot_bgcolor="rgba(255,255,255,1)")
+
+    # xticks and y ticks
+    yticktext = si.formated_ranked_candidates(show_no_opinion)
+    yticktext.reverse()
+    ycategoryarray = si.ranked_candidates
+    ycategoryarray.reverse()
+    fig.update_layout(
+        xaxis=dict(
+            range=[0, 101],
+            tickmode="array",
+            tickvals=[0, 20, 40, 60, 80, 100],
+            ticktext=["0%", "20%", "40%", "60%", "80%", "100%"],
+            tickfont_size=font_size,
+            title="",
+            gridcolor="black",
+            gridwidth=1,
+            griddash="solid",
+        ),
+        yaxis=dict(
+            tickfont_size=font_size * 0.75,
+            title="",
+            automargin=True,
+            ticklabelposition="outside left",
+            ticksuffix="   ",
+            tickmode="array",
+            tickvals=[i for i in range(si.nb_candidates)],
+            ticktext=yticktext,
+            categoryorder="array",
+            categoryarray=ycategoryarray,
+        ),
+    )
+
+    # Title
+    title = "<b>Evaluation à l'approbation</b>"
+
+    date_str = f"date: {si.end_date}, " if si.end_date is not None else ""
+    source_str = f"source: {si.source}" if si.source is not None else ""
+    source_str += ", " if si.sponsor is not None else ""
+    sponsor_str = f"commanditaire: {si.sponsor}" if si.sponsor is not None else ""
+    subtitle = f"<br><i>{date_str}{source_str}{sponsor_str}</i>"
+
+    fig.update_layout(title=title + subtitle, title_x=0.5)
+
+    # font family
+    fig.update_layout(font_family="arial")
+
+    fig = _add_image_to_fig(fig, x=LOGO_X_LOCATION, y=LOGO_Y_LOCATION, sizex=0.15, sizey=0.15)
+
+    # size of the figure
+    fig.update_layout(width=1000, height=900)
+
+    return fig
+
+
 def ranking_plot(
     si: SurveysInterface,
     on_rolling_data: bool = False,
@@ -226,6 +316,7 @@ def ranking_plot(
     show_no_opinion: bool = True,
     show_grade_area: bool = True,
     breaks_in_names: bool = True,
+    voting_str_title: str = "au jugement majoritaire",
     fig: go.Figure = None,
     row=None,
     col=None,
@@ -256,6 +347,7 @@ def ranking_plot(
         for grade, color in zip(grades, c_rgb):
             temp_df = df[df["mention_majoritaire"] == grade]
             if temp_df.empty:
+                continue
                 fig.add_scatter(
                     x=[x_date[0], x_date[-1], x_date[-1], x_date[0]],
                     y=[0, 0, 0, 0],
@@ -268,7 +360,6 @@ def ranking_plot(
                     row=row,
                     col=col,
                 )
-                continue
 
             y_upper = []
             y_lower = []
@@ -349,22 +440,6 @@ def ranking_plot(
         size_annotations = 12
         name_shift = 10
 
-        # first dot annotation
-        if temp_df["end_date"].iloc[-1] != temp_df["end_date"].iloc[0]:
-            fig["layout"]["annotations"] += (
-                dict(
-                    x=temp_df["end_date"].iloc[0],
-                    y=temp_df["rang"].iloc[0],
-                    xanchor="right",
-                    xshift=-name_shift,
-                    text=f"{name_label}",
-                    font=dict(family="Arial", size=size_annotations, color=color),
-                    showarrow=False,
-                    xref=xref,
-                    yref=yref,
-                ),
-            )
-
         # Nice name label
         extended_name_label = _extended_name_annotations(
             temp_df,
@@ -395,15 +470,24 @@ def ranking_plot(
 
     # fig = _add_election_date(fig, y=0.25, xshift=10)
 
+    margin_one_day = timedelta(days=1)
+
+    # Convert string dates to datetime objects
+    start_date = datetime.strptime(si.dates[0], "%Y-%m-%d")
+    end_date = datetime.strptime(si.dates[-1], "%Y-%m-%d")
+
+    x_range = [start_date - margin_one_day, end_date + 5 * margin_one_day]
+
     fig.update_layout(
         yaxis=dict(autorange="reversed", tick0=1, dtick=1, visible=False),
+        xaxis=dict(range=x_range, tickformat="%m/%Y"),
         # annotations=annotations,
         plot_bgcolor="white",
         showlegend=True,
     )
 
     # Title
-    title = "<b>Classement des candidats à l'élection présidentielle 2027<br> au jugement majoritaire</b> "
+    title = "<b>Classement des candidats à l'élection présidentielle 2027<br>" f"{voting_str_title}</b> "
 
     end_date = df["end_date"].max()
     date_str = f"date: {end_date}, " if end_date is not None else ""
@@ -414,15 +498,15 @@ def ranking_plot(
 
     fig.update_layout(title=title + subtitle, title_x=0.5)
 
-    fig = _add_image_to_fig(fig, x=1.00, y=1.05, sizex=0.10, sizey=0.10, xanchor="right")
+    fig = _add_image_to_fig(fig, x=1.00, y=0.985, sizex=0.10, sizey=0.10, xanchor="right")
 
     # Legend
     fig.update_layout(
         width=1200,
         height=1000,
         legend_title_text="Mentions majoritaires",
-        autosize=True,
-        legend=dict(orientation="h", xanchor="center", x=0.5, y=-0.05),  # 50 % of the figure width/
+        # autosize=True,
+        legend=dict(orientation="h", xanchor="center", x=0.5, y=-0.025),  # 50 % of the figure width/
     )
     return fig
 
@@ -1209,4 +1293,367 @@ def add_no_opinion_time_merit_profile(
         row=row,
         col=col,
     )
+    return fig
+
+
+def plot_time_approval_profiles(
+    si: SurveysInterface,
+    on_rolling_data: bool = False,
+    show_rank: bool = True,
+    show_no_opinion: bool = True,
+    breaks_in_names: bool = True,
+    fig: go.Figure = None,
+    row=None,
+    col=None,
+) -> go.Figure:
+
+    COLORS = load_colors()
+
+    if fig is None:
+        fig = go.Figure()
+
+    if not si.is_aggregated:
+        raise ValueError("The ranking plot requires the data to be aggregated into a unique set of grades.")
+
+    df = si.df.copy().sort_values(by=["end_date", "rang"])
+
+    df_with_offsets = add_vertical_offset(df, "candidate", "end_date", "approbation")
+
+    for candidate in si.candidates:
+        color = COLORS.get(candidate, {"couleur": "black"})["couleur"]
+
+        temp_df = df_with_offsets[df_with_offsets["candidate"] == candidate].copy().sort_values(by="end_date")
+        fig.add_trace(
+            go.Scatter(
+                x=temp_df["end_date"],
+                y=temp_df["approbation"],
+                mode="lines",
+                name=candidate,
+                marker=dict(color=color),
+                showlegend=False,
+                legendgroup=None,
+            ),
+            row=row,
+            col=col,
+        )
+
+        fig.add_trace(
+            go.Scatter(
+                x=temp_df["end_date"].iloc[0:1],
+                y=temp_df["approbation"].iloc[0:1],
+                mode="markers",
+                name=candidate,
+                marker=dict(color=color),
+                showlegend=False,
+                legendgroup=None,
+            ),
+            row=row,
+            col=col,
+        )
+
+        fig.add_trace(
+            go.Scatter(
+                x=temp_df["end_date"].iloc[-1:],
+                y=temp_df["approbation"].iloc[-1:],
+                mode="markers",
+                name=candidate,
+                marker=dict(color=color),
+                showlegend=False,
+                legendgroup=None,
+            ),
+            row=row,
+            col=col,
+        )
+
+        # PREPARE ANNOTATIONS - name with break btw name and surname
+        xref = f"x{col}" if row is not None else None
+        yref = f"y{row}" if row is not None else None
+        name_label = _extended_name_annotations(
+            temp_df,
+            candidate=candidate,
+            show_rank=False,
+            show_best_grade=False,
+            show_no_opinion=False,
+            breaks_in_names=False,
+        )
+        size_annotations = 12
+        name_shift = 10
+
+        # first dot annotation
+        if temp_df["end_date"].iloc[-1] != temp_df["end_date"].iloc[0]:
+            fig["layout"]["annotations"] += (
+                dict(
+                    x=temp_df["end_date"].iloc[0],
+                    y=temp_df["approbation"].iloc[0] + temp_df["y_offset"].iloc[0],
+                    xanchor="right",
+                    xshift=-name_shift,
+                    text=f"{name_label}",
+                    font=dict(family="Arial", size=size_annotations, color=color),
+                    showarrow=False,
+                    xref=xref,
+                    yref=yref,
+                ),
+            )
+
+        # Nice name label
+        extended_name_label = _extended_name_annotations(
+            temp_df,
+            candidate=candidate,
+            show_rank=show_rank,
+            show_no_opinion=show_no_opinion,
+            breaks_in_names=False,
+        )
+
+        # last dot annotation
+        # only if the last dot correspond to the last polls
+        if df["end_date"].max() == temp_df["end_date"].iloc[-1]:
+            fig["layout"]["annotations"] += (
+                dict(
+                    x=temp_df["end_date"].iloc[-1],
+                    y=temp_df["approbation"].iloc[-1] + temp_df["y_offset"].iloc[-1],
+                    xanchor="left",
+                    xshift=name_shift,
+                    yanchor="middle",
+                    text=extended_name_label,
+                    font=dict(family="Arial", size=size_annotations, color=color),
+                    showarrow=False,
+                    xref=xref,
+                    yref=yref,
+                ),
+            )
+
+    # fig = _add_election_date(fig, y=0.25, xshift=10)
+
+    fig.update_layout(
+        # yaxis=dict(autorange="reversed", tick0=1, dtick=1, visible=False),
+        # annotations=annotations,
+        # plot_bgcolor="white",
+        showlegend=True,
+        yaxis=dict(
+            range=[
+                # min - 1,5, # max + 1.5
+                df_with_offsets["approbation"].min() - 0.5,
+                df_with_offsets["approbation"].max() + 0.5,
+            ],
+        ),
+    )
+
+    # Title
+    title = "<b>Classement des candidats à l'élection présidentielle 2027<br> à l'approbation</b> "
+
+    end_date = df["end_date"].max()
+    date_str = f"date: {end_date}, " if end_date is not None else ""
+    source_str = f"source: {si.sources_string}" if si.sources_string is not None else ""
+    source_str += ", " if si.sponsors_string is not None else ""
+    sponsor_str = f"commanditaire: {si.sponsors_string}" if si.sponsors_string is not None else ""
+    subtitle = f"<br><i>{source_str}{sponsor_str}, dernier sondage: {date_str}</i>"
+
+    fig.update_layout(title=title + subtitle, title_x=0.5)
+
+    fig = _add_image_to_fig(fig, x=1.00, y=1.05, sizex=0.10, sizey=0.10, xanchor="right")
+
+    # Legend
+    fig.update_layout(
+        width=1200,
+        height=1200,
+        autosize=True,
+        legend=dict(orientation="h", xanchor="center", x=0.5, y=-0.05),  # 50 % of the figure width/
+    )
+    return fig
+
+
+def add_vertical_offset(df, candidate_column, date_column, value_column, offset=1.5):
+    # Créer une copie du DataFrame avec les colonnes pertinentes
+    result_df = df.copy()
+
+    # Ajouter une colonne pour stocker le décalage
+    result_df["y_offset"] = 0.0
+
+    # Grouper par date
+    for date, group in df.groupby(date_column):
+        # Créer un dictionnaire pour stocker les positions utilisées à cette date
+        used_positions = {}
+
+        # Trier par valeur pour traiter d'abord les candidats avec des valeurs similaires
+        for _, row in group.sort_values(value_column).iterrows():
+            value = row[value_column]
+            candidate = row[candidate_column]
+
+            # Arrondir la valeur pour regrouper les positions proches
+            rounded_value = round(value, 1)
+
+            # Vérifier si cette position est déjà utilisée
+            if rounded_value in used_positions:
+                # Ajouter un décalage
+                used_positions[rounded_value] += 0.25
+                y_offset = (used_positions[rounded_value] - 1) * offset
+                result_df.loc[
+                    (result_df[date_column] == date) & (result_df[candidate_column] == candidate), "y_offset"
+                ] = y_offset
+            else:
+                # Première utilisation de cette position
+                used_positions[rounded_value] = 1
+
+    return result_df
+
+
+def plot_ranked_time_approval_profile(
+    si: SurveysInterface,
+    show_no_opinion: bool = True,
+    on_rolling_data: bool = False,
+) -> go.Figure:
+    # Candidat list sorted the rank in the last poll
+    si_most_recent = si.most_recent_survey
+    si_most_recent.df = si_most_recent.df.sort_values(by="rang")
+    titles_candidates = [f"{c} {rank2str(i+1)}" for i, c in enumerate(si_most_recent.candidates)]
+
+    # size of the figure
+    n_rows, n_cols = _generate_windows_size(len(si_most_recent.candidates))
+    idx_rows, idx_cols = np.unravel_index([i for i in range(si_most_recent.nb_candidates)], (n_rows, n_cols))
+    idx_rows += 1
+    idx_cols += 1
+    fig = make_subplots(
+        rows=n_rows,
+        cols=n_cols,
+        shared_yaxes=True,
+        shared_xaxes=True,
+        subplot_titles=titles_candidates,
+        vertical_spacing=0.05,
+        horizontal_spacing=0.05,
+    )
+
+    show_legend = False
+    for row, col, c in zip(idx_rows, idx_cols, si_most_recent.candidates):
+        fig = plot_time_approval_profile(
+            si=si.select_candidate(c),
+            fig=fig,
+            show_legend=show_legend,
+            no_layout=True,
+            row=row,
+            col=col,
+        )
+        fig.update_yaxes(range=[0, 50], row=row, col=col, title="Approbation (%)" if col == 1 else "")
+
+    fig.update_layout(
+        yaxis_range=(0, 50),
+        width=1200,
+        height=900 if n_rows > 1 else 450,
+        legend_title_text="Approbation",
+        autosize=True,
+        legend=dict(orientation="h", xanchor="center", x=0.5, y=-0.05),  # 50 % of the figure width/
+        yaxis=dict(
+            tickfont_size=15,
+            title="Approbation (%)",  # candidat
+            automargin=True,
+        ),
+        plot_bgcolor="white",
+    )
+
+    # Title
+    pop_str = " - population: " + str(si.df["population"].iloc[0]) if "population" in si.df.columns else ""
+    title = f"<b>Classement des candidats à l'approbation</b>{pop_str}"
+
+    source_str = f"source: {si.sources_string}" if si.sources_string is not None else ""
+    source_str += ", " if si.sponsors_string is not None else ""
+    sponsor_str = f"commanditaire: {si.sponsors_string}" if si.sponsors_string is not None else ""
+    subtitle = f"<br><i>{source_str}{sponsor_str}, dernier sondage: {si.most_recent_date}.</i>"
+
+    fig.update_layout(title=title + subtitle, title_x=0.5)
+    fig = _add_image_to_fig(fig, x=1.00, y=1.05, sizex=0.10, sizey=0.10, xanchor="right")
+
+    return fig
+
+
+def plot_time_approval_profile(
+    si: SurveyInterface,
+    fig: go.Figure = None,
+    show_legend: bool = True,
+    show_logo: bool = True,
+    no_layout: bool = False,
+    row: int = None,
+    col: int = None,
+) -> go.Figure:
+
+    if fig is None:
+        fig = go.Figure()
+
+    si.df.sort_values(by="end_date")
+
+    COLORS = load_colors()
+    candidate_color = COLORS.get(si.df.candidate.unique().tolist()[0], {"couleur": "black"})["couleur"]
+
+    # convert to rgba from hex
+    def hex_to_rgba(hex_color, alpha=0.5):
+        """Convertit une couleur hexadécimale (#RRGGBB) en format RGBA."""
+        # Supprimer les guillemets simples ou doubles si présents
+        hex_color = hex_color.strip("'\"")
+
+        # Enlever le # si présent
+        hex_color = hex_color.lstrip("#")
+
+        try:
+            # Format standard #RRGGBB
+            if len(hex_color) == 6:
+                r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+            # Format court #RGB
+            elif len(hex_color) == 3:
+                r, g, b = int(hex_color[0], 16) * 17, int(hex_color[1], 16) * 17, int(hex_color[2], 16) * 17
+            # Autre format non reconnu, utiliser une couleur par défaut
+            else:
+                r, g, b = 0, 0, 0  # Noir
+        except ValueError:
+            # En cas d'erreur de conversion, utiliser une couleur par défaut
+            r, g, b = 0, 0, 0  # Noir
+
+        return f"rgba({r}, {g}, {b}, {alpha})"
+
+    candidate_color_rgba = hex_to_rgba(candidate_color, alpha=0.5)
+
+    fig.add_trace(
+        go.Scatter(
+            x=si.dates,
+            y=si.df["approbation"],
+            hoverinfo="x+y",
+            mode="lines+markers",
+            line=dict(width=0.5, color=candidate_color),
+            stackgroup="one",
+            fillcolor=candidate_color_rgba,
+            name=si.df.candidate.unique().tolist()[0],
+            showlegend=show_legend,
+        ),
+        row=row,
+        col=col,
+    )
+
+    if not no_layout:
+        fig.update_layout(
+            yaxis_range=(0, 50),
+            width=1200,
+            height=800,
+            legend_title_text="Mentions",
+            autosize=True,
+            legend=dict(orientation="h", xanchor="center", x=0.5, y=-0.05),  # 50 % of the figure width
+            yaxis=dict(
+                tickfont_size=15,
+                title="Mentions (%)",
+                automargin=True,
+            ),
+            plot_bgcolor="white",
+        )
+
+        # Title and detailed
+        title = (
+            f"<b>Evolution des mentions à l'approbation"
+            + f"<br> pour le candidat {si.df.candidate.unique().tolist()[0]}</b>"
+        )
+        source_str = f"source: {si.sources_string}" if si.sources is not None else ""
+        source_str += ", " if si.sponsors is not None else ""
+        sponsor_str = f"commanditaire: {si.sponsors_string}" if si.sponsors is not None else ""
+        subtitle = f"<br><i>{source_str}{sponsor_str}, dernier sondage: {si.most_recent_date}.</i>"
+
+        fig.update_layout(title=title + subtitle, title_x=0.5)
+
+        if show_logo:
+            fig = _add_image_to_fig(fig, x=1.00, y=1.05, sizex=0.10, sizey=0.10, xanchor="right")
+
     return fig

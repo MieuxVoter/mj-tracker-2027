@@ -338,6 +338,12 @@ class SurveyInterface:
             self.df[col_rank] = None
         if col_median_grade not in self.df.columns:
             self.df[col_median_grade] = None
+        if "avant_mention_majortiaire" not in self.df.columns:
+            self.df["avant_mention_majortiaire"] = None
+        if "apres_mention_majortiaire" not in self.df.columns:
+            self.df["apres_mention_majortiaire"] = None
+        if "tri_majoritaire" not in self.df.columns:
+            self.df["tri_majoritaire"] = None
 
         col_rank = self.df.columns.get_loc(col_rank)
         col_best_grade = self.df.columns.get_loc(col_median_grade)
@@ -351,8 +357,82 @@ class SurveyInterface:
 
         for candidate, best_grade in best_grades.items():
             idx = np.where(self.df["candidate"] == candidate)[0][0]
-            print(grade_list[best_grade])
             self.df.iat[idx, col_best_grade] = grade_list[best_grade]
+
+            if reversed:
+                best_grade = self.nb_grades - 1 - best_grade
+
+            before_best_grade = self.sum_intentions(up_to=best_grade - 1).iloc[idx]
+            after_best_grade = 100 - self.sum_intentions(up_to=best_grade).iloc[idx]
+
+            self.df.iat[idx, self.df.columns.get_loc("avant_mention_majortiaire")] = before_best_grade
+            self.df.iat[idx, self.df.columns.get_loc("apres_mention_majortiaire")] = after_best_grade
+            if before_best_grade > after_best_grade:
+                self.df.iat[idx, self.df.columns.get_loc("tri_majoritaire")] = "approbation"
+            elif before_best_grade < after_best_grade:
+                self.df.iat[idx, self.df.columns.get_loc("tri_majoritaire")] = "rejet"
+
+        return self.df
+
+    def apply_approval(self, up_to: str, rolling_mj: bool = False):
+        """
+        Apply the Approval rule to the survey data.
+        This method calculates the approval percentage for each candidate based on their intentions.
+        """
+        id_mention = self.grades.index(up_to) if up_to != "last" else self.nb_grades
+
+        df_with_rank = self._sort_candidates_approval(
+            up_to=id_mention,
+            col_rank="rang_glissant" if rolling_mj else "rang",
+        )
+        return df_with_rank
+
+    def _sort_candidates_approval(
+        self,
+        up_to: int,
+        col_rank: str = None,
+    ):
+        """
+        Reindexing candidates in the dataFrame following Approval rules
+
+        Parameters
+        ----------
+        up_to : int
+            The mention to sum up to. Can be "last" for all mentions or a specific mention number.
+            from 0 to nb_grades-1.
+        col_rank: str
+            rank col to considered (ex: rang or rang_glissant)
+        official_lib: bool
+            if we use the official majority judgment lib from MieuxVoter
+        Returns
+        -------
+        Return the DataFrame df sorted with the rank within Approval rules.
+        """
+        col_rank = "rang" if col_rank is None else col_rank
+        col_approval = "approbation"
+
+        # Calculer l'approbation pour chaque candidat
+        approval = self.sum_intentions(up_to=up_to)
+
+        # Vérifier si la colonne d'approbation existe, sinon la créer
+        if col_approval not in self.df.columns:
+            self.df[col_approval] = None
+
+        # Créer un DataFrame temporaire avec les scores d'approbation et les candidats
+        temp_df = pd.DataFrame({"candidate": self.df["candidate"], "approval_score": approval})
+
+        # Trier par score d'approbation décroissant
+        sorted_temp_df = temp_df.sort_values("approval_score", ascending=False)
+
+        # Attribuer les rangs et scores d'approbation
+        for rank, (_, row) in enumerate(sorted_temp_df.iterrows(), 1):
+            candidate = row["candidate"]
+            score = row["approval_score"]
+            idx = np.where(self.df["candidate"] == candidate)[0][0]
+            self.df.iat[idx, self.df.columns.get_loc(col_rank)] = rank
+            self.df.iat[idx, self.df.columns.get_loc(col_approval)] = score
+
+        self.df = self.df.sort_values(by=col_rank, na_position="last")  # Handle NAs in rank
 
         return self.df
 
@@ -360,6 +440,52 @@ class SurveyInterface:
     def intentions(self):
         colheaders = ["candidate"] + self._intentions_colheaders
         return self.df[colheaders]
+
+    def sum_intentions(self, up_to: str | int = "last"):
+        """
+        Returns the sum of intentions for each candidate up to specified mention from 1 to nb_grades.
+        Args:
+            up_to (str or int): The mention to sum up to. Can be "last" for all mentions or a specific mention number.
+                from 0 to nb_grades-1.
+        """
+
+        if up_to == "last":
+            return self.df[self._intentions_colheaders].sum(axis=1)
+        elif isinstance(up_to, int):
+            up_to += 1  # Convert to 1-based index for user-friendliness
+            if 1 <= up_to <= self.nb_grades:
+                cols_to_sum = self._intentions_colheaders[:up_to]
+                return self.df[cols_to_sum].sum(axis=1)
+            elif up_to == 0:
+                return pd.Series(0, index=self.df.index)  # Return zero if up_to is 0
+        elif isinstance(up_to, str):
+            is_up_to = up_to in self._grades_colheaders
+            if not is_up_to:
+                raise ValueError(
+                    f"Invalid value for 'up_to': {up_to}. Must be 'last' or an integer between 1 and {self.nb_grades}."
+                )
+            up_to_idx = self._grades_colheaders.index(up_to)
+            cols_to_sum = self._intentions_colheaders[: up_to_idx + 1]
+            return self.df[cols_to_sum].sum(axis=1)
+        else:
+            raise ValueError(
+                f"Invalid value for 'up_to': {up_to}. Must be 'last' or an integer between 1 and {self.nb_grades}."
+            )
+
+    def cumulative_intentions(self):
+        """
+        Returns a DataFrame with cumulative intentions for each candidate.
+        Each column represents the cumulative sum of intentions up to that mention.
+        """
+        cumulative_df = pd.DataFrame()
+        cumulative_df["candidate"] = self.df["candidate"]
+
+        cumulative_sum = np.zeros(len(self.df))
+        for i, col in enumerate(self._intentions_colheaders):
+            cumulative_sum += self.df[col]
+            cumulative_df[f"cumulative_intention_mention_{i + 1}"] = cumulative_sum
+
+        return cumulative_df
 
     @cached_property
     def candidates(self):
@@ -398,4 +524,3 @@ class SurveyInterface:
         if candidate not in self.candidates:
             raise ValueError(f"Candidate '{candidate}' not found in the survey.")
         return self.df[self.df["candidate"] == candidate].copy
-

@@ -23,7 +23,7 @@ class Arguments(tap.Tap):
     test: bool = False
     show: bool = True
     html: bool = False
-    png: bool = False
+    png: bool = True
     json: bool = False
     svg: bool = False
     csv: Path = Path("/home/ppuchaud/Documents/perso/mieux_voter/mj-database-2027/mj2027.csv")
@@ -47,17 +47,15 @@ def main(args: Arguments):
 
     # filter the majority judgement data to get a smoother estimation of grades
     filtered = False
-    # if filtered:
-    # si.filter()
 
     # Apply the Majority Judgement rule
     si.apply_mj()
 
     # # generate all the graphs
-    batch_merit_profile(si, args, auto_text=False)
-    batch_ranking(si, args, filtered=filtered)
-    # batch_time_merit_profile(si, args, aggregation_mode, polls=PollingOrganizations.ALL, filtered=filtered)
-    # batch_ranked_time_merit_profile(si, args, aggregation_mode, polls=PollingOrganizations.ALL, filtered=filtered)
+    # batch_merit_profile(si, args, auto_text=False)
+    # batch_ranking(si, args, filtered=filtered)
+    # batch_time_merit_profile(si, args, aggregation_mode, polls=PollingOrganizations.IPSOS)
+    batch_ranked_time_merit_profile(si, args, aggregation_mode, polls=PollingOrganizations.IPSOS, filtered=filtered)
     # batch_time_merit_profile_all(si, args, aggregation_mode, filtered=filtered)
 
 

@@ -204,7 +204,7 @@ def export_fig(fig: go.Figure, args, filename: str):
     if args.html:
         fig.write_html(f"{args.dest}/{filename}.html", config=dict(displaylogo=False))
     if args.png:
-        fig.write_image(f"{args.dest}/{filename}.png")
+        fig.write_image(f"{args.dest}/{filename}.png", height=fig.layout.height, width=fig.layout.width, scale=3)
     if args.svg:
         fig.write_image(f"{args.dest}/{filename}.svg")
     if args.json:

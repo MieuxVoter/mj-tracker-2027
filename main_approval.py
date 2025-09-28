@@ -1,11 +1,13 @@
 from pathlib import Path
 import tap
 from mjtracker.batch_plots import (
-    batch_merit_profile,
+    batch_approval_profile,
     batch_ranking,
     batch_time_merit_profile,
     batch_ranked_time_merit_profile,
     batch_time_merit_profile_all,
+    batch_time_approval_profiles,
+    batch_ranked_time_approval_profile,
 )
 
 # from mjtracker.smp_data import SMPData # not available yet.
@@ -21,13 +23,13 @@ class Arguments(tap.Tap):
     ranked_time_merit_profile: bool = True
     comparison_intention: bool = True
     test: bool = False
-    show: bool = True
+    show: bool = False
     html: bool = False
-    png: bool = False
-    json: bool = False
+    png: bool = True
+    json: bool = True
     svg: bool = False
-    csv: Path = Path("/home/ppuchaud/Documents/perso/mieux_voter/mj-database-2027/mj2027.csv")
-    dest: Path = Path("../trackerapp/data/graphs/mj")
+    csv: Path = Path("../mj-database-2027/mj2027.csv")
+    dest: Path = Path("../trackerapp/data/graphs/approval")
 
 
 def main(args: Arguments):
@@ -42,23 +44,19 @@ def main(args: Arguments):
     # remove no opinion data
     si.to_no_opinion_surveys()
 
-    # aggregation to merge all database if possible.
-    # si.aggregate(aggregation_mode)
-
     # filter the majority judgement data to get a smoother estimation of grades
     filtered = False
-    # if filtered:
-    # si.filter()
+    if filtered:
+        si.filter()
 
     # Apply the Majority Judgement rule
-    si.apply_mj()
+    si.apply_approval(up_to="plutôt satisfait")
 
     # # generate all the graphs
-    batch_merit_profile(si, args, auto_text=False)
-    batch_ranking(si, args, filtered=filtered)
-    # batch_time_merit_profile(si, args, aggregation_mode, polls=PollingOrganizations.ALL, filtered=filtered)
-    # batch_ranked_time_merit_profile(si, args, aggregation_mode, polls=PollingOrganizations.ALL, filtered=filtered)
-    # batch_time_merit_profile_all(si, args, aggregation_mode, filtered=filtered)
+    batch_approval_profile(si, args, auto_text=True)
+    batch_time_approval_profiles(si, args, aggregation_mode, polls=PollingOrganizations.IPSOS)
+    batch_ranking(si, args, filtered=filtered, show_grade_area=False)
+    batch_ranked_time_approval_profile(si, args, aggregation_mode, polls=PollingOrganizations.IPSOS)
 
 
 if __name__ == "__main__":

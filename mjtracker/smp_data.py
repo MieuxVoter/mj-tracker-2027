@@ -51,14 +51,14 @@ class SMPData:
         """
         df = self.df_raw
         df = df[df["tour"] == "Premier tour"]
-        df = df.sort_values(by="fin_enquete")
-        df = df[df["fin_enquete"] > "2021-09-01"]
+        df = df.sort_values(by="end_date")
+        df = df[df["end_date"] > "2021-09-01"]
 
         dict_candidats = {}
         derniere_intention = pd.DataFrame()  # columns=["candidat", "intentions"])
         for candidat in CANDIDATS:
             df_temp = df[df["candidat"] == candidat]
-            df_temp.index = pd.to_datetime(df_temp["fin_enquete"])
+            df_temp.index = pd.to_datetime(df_temp["end_date"])
 
             df_temp_rolling = (
                 df_temp[["intentions", "erreur_inf", "erreur_sup"]]
@@ -82,7 +82,7 @@ class SMPData:
 
             dict_candidats[candidat] = {
                 "intentions_moy_14d": {
-                    "fin_enquete": df_temp_rolling.index.strftime("%Y-%m-%d").to_list(),
+                    "end_date": df_temp_rolling.index.strftime("%Y-%m-%d").to_list(),
                     "valeur": df_temp_rolling.intentions.to_list(),
                     "std": df_temp_rolling_std.intentions.to_list(),
                     "erreur_inf": df_temp_rolling.erreur_inf.to_list(),
@@ -119,11 +119,11 @@ class SMPData:
         df_smp = self.df_treated
 
         # Create a new dataframe
-        df_rank_smp = pd.DataFrame(columns=["candidat", "fin_enquete", "valeur", "rang", "erreur_sup", "erreur_inf"])
+        df_rank_smp = pd.DataFrame(columns=["candidat", "end_date", "valeur", "rang", "erreur_sup", "erreur_inf"])
         for row in df_smp.iterrows():
             dict_moy = row[1]["candidats"]["intentions_moy_14d"]
             for d, v, sup, inf in zip(
-                dict_moy["fin_enquete"],
+                dict_moy["end_date"],
                 dict_moy["valeur"],
                 dict_moy["erreur_inf"],
                 dict_moy["erreur_sup"],
@@ -137,24 +137,24 @@ class SMPData:
         # Fill date without value for some candidates
         for c in df_rank_smp["candidat"].unique():
             temp_df = df_rank_smp[df_rank_smp["candidat"] == c]
-            date_min = temp_df["fin_enquete"].min()
-            date_max = temp_df["fin_enquete"].max()
-            for d in df_rank_smp["fin_enquete"].unique():
-                if (d > date_min) and (d < date_max) and temp_df[temp_df["fin_enquete"] == d].empty:
-                    idx = temp_df["fin_enquete"].searchsorted(d)
+            date_min = temp_df["end_date"].min()
+            date_max = temp_df["end_date"].max()
+            for d in df_rank_smp["end_date"].unique():
+                if (d > date_min) and (d < date_max) and temp_df[temp_df["end_date"] == d].empty:
+                    idx = temp_df["end_date"].searchsorted(d)
                     v = temp_df["valeur"].iloc[idx - 1]
                     sup = temp_df["erreur_sup"].iloc[idx - 1]
                     inf = temp_df["erreur_inf"].iloc[idx - 1]
-                    row_to_add = dict(candidat=c, fin_enquete=d, valeur=v, rang=None, erreur_sup=sup, erreur_inf=inf)
+                    row_to_add = dict(candidat=c, end_date=d, valeur=v, rang=None, erreur_sup=sup, erreur_inf=inf)
                     df_dictionary = pd.DataFrame([row_to_add])
                     df_rank_smp = pd.concat([df_rank_smp, df_dictionary], ignore_index=True)
 
         # Compute the rank of every candidates
-        df_rank_smp = df_rank_smp.sort_values(by=["fin_enquete", "valeur"], ascending=(True, False))
-        dates = df_rank_smp["fin_enquete"].unique()
+        df_rank_smp = df_rank_smp.sort_values(by=["end_date", "valeur"], ascending=(True, False))
+        dates = df_rank_smp["end_date"].unique()
         for d in dates:
-            nb_candidates = len(df_rank_smp[df_rank_smp["fin_enquete"] == d])
-            index_row = df_rank_smp.index[df_rank_smp["fin_enquete"] == d]
+            nb_candidates = len(df_rank_smp[df_rank_smp["end_date"] == d])
+            index_row = df_rank_smp.index[df_rank_smp["end_date"] == d]
             df_rank_smp.loc[index_row, "rang"] = [i + 1 for i in range(nb_candidates)]
 
         return df_rank_smp
@@ -171,12 +171,12 @@ class SMPData:
         df_smp = self.df_treated
 
         # Create a new dataframe
-        df_smp_data = pd.DataFrame(columns=["candidat", "fin_enquete", "intentions"])
+        df_smp_data = pd.DataFrame(columns=["candidat", "end_date", "intentions"])
         for row in df_smp.iterrows():
             for (
                 d,
                 i,
-            ) in zip(row[1]["candidats"]["intentions"]["fin_enquete"], row[1]["candidats"]["intentions"]["valeur"]):
+            ) in zip(row[1]["candidats"]["intentions"]["end_date"], row[1]["candidats"]["intentions"]["valeur"]):
                 row_to_add = dict(
                     candidat=row[0],
                     fin_enquete=d,
