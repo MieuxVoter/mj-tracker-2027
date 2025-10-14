@@ -4,6 +4,9 @@ This module is not finished yet. But it will be very much beneficial for the who
 
 from functools import cached_property
 from pathlib import Path
+import requests
+from io import StringIO
+import urllib.parse
 
 import numpy as np
 import pandas as pd
@@ -20,6 +23,27 @@ MAX_MENTIONS_IN_DATAFRAME = 7  # Maximum number of mentions in the dataframe, us
 class SurveysInterface:
     def __init__(self, df: pd.DataFrame):
         self.df = df
+
+    @classmethod
+    def load_from_url(
+        cls,
+        url: str = None,
+        candidates: Candidacy = None,
+        polling_organization: PollingOrganizations = None,
+        until_round: UntilRound = None,  # note: this is not implemented yet
+    ):
+        if "github.com" in url and "/blob/" in url:
+            url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
+
+        response = requests.get(url)
+        response.raise_for_status()
+
+        return cls.load(
+            csv_path=StringIO(response.text),
+            candidates=candidates,
+            polling_organization=polling_organization,
+            until_round=until_round,
+        )
 
     @classmethod
     def load(

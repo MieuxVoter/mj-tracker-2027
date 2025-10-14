@@ -9,6 +9,7 @@ from mjtracker.batch_plots import (
 )
 from mjtracker.color_utils import get_grade_color_palette
 from mjtracker.plot_utils import load_colors
+
 # from mjtracker.smp_data import SMPData # not available yet.
 from mjtracker.misc.enums import AggregationMode, PollingOrganizations, UntilRound
 from mjtracker import SurveysInterface
@@ -123,10 +124,7 @@ def main(args: Arguments):
     link_colors_level1 = []
     for candidate in candidates:
         candidate_data = df[df["candidate"] == candidate]
-        link_colors_level1 += [COLORS.get(candidate, {"couleur": "black"})["couleur"]      ]
-
-
-
+        link_colors_level1 += [COLORS.get(candidate, {"couleur": "black"})["couleur"]]
 
     # Définir les couleurs pour les liens du second niveau (mention → approbation/rejet)
     link_colors_level2 = []
@@ -142,13 +140,14 @@ def main(args: Arguments):
 
     # Créer des couleurs pour les nœuds
     node_colors = (
-            ["rgba(31, 119, 180, 0.8)" for _ in candidates]  # Bleu pour les candidats
-            + [grade_colors[mention_to_color_idx[mention]] for mention in
-               mentions]  # Utiliser les couleurs de la palette pour les mentions
-            + [
-                "rgba(44, 160, 44, 0.8)" if "approbation" in cat else "rgba(214, 39, 40, 0.8)"
-                for cat in approbation_rejet_categories
-            ]  # Vert pour approbation, Rouge pour rejet
+        ["rgba(31, 119, 180, 0.8)" for _ in candidates]  # Bleu pour les candidats
+        + [
+            grade_colors[mention_to_color_idx[mention]] for mention in mentions
+        ]  # Utiliser les couleurs de la palette pour les mentions
+        + [
+            "rgba(44, 160, 44, 0.8)" if "approbation" in cat else "rgba(214, 39, 40, 0.8)"
+            for cat in approbation_rejet_categories
+        ]  # Vert pour approbation, Rouge pour rejet
     )
 
     # Combiner les données des deux niveaux
@@ -176,14 +175,9 @@ def main(args: Arguments):
                     thickness=30,  # make nodes wider so labels are clearly on them
                     line=dict(color="black", width=1),  # node borders
                     label=labels,
-                    color=node_colors
+                    color=node_colors,
                 ),
-                link=dict(
-                    source=sources,
-                    target=targets,
-                    value=values,
-                    color=link_colors
-                ),
+                link=dict(source=sources, target=targets, value=values, color=link_colors),
             )
         ]
     )
@@ -192,39 +186,38 @@ def main(args: Arguments):
     x_pos = [0, 0.3, 0.6]  # Candidate, mention, app/rej
     y_pos = [i * 0.05 for i in range(len(candidates))]  # spread vertically
 
-    fig = go.Figure(go.Sankey(
-        arrangement="snap",
-        node=dict(
-            pad=15,
-            thickness=20,
-            line=dict(color="black", width=0.5),
-            label=[""] * len(labels),  # Remove default labels
-            x=[0] * len(candidates) + [0.5] * len(mentions) + [1] * len(approbation_rejet_categories),
-            y=y_pos + [None] * (len(labels) - len(candidates)),
-            color=node_colors
-        ),
-        link=dict(source=sources, target=targets, value=values, color=link_colors)
-    ))
+    fig = go.Figure(
+        go.Sankey(
+            arrangement="snap",
+            node=dict(
+                pad=15,
+                thickness=20,
+                line=dict(color="black", width=0.5),
+                label=[""] * len(labels),  # Remove default labels
+                x=[0] * len(candidates) + [0.5] * len(mentions) + [1] * len(approbation_rejet_categories),
+                y=y_pos + [None] * (len(labels) - len(candidates)),
+                color=node_colors,
+            ),
+            link=dict(source=sources, target=targets, value=values, color=link_colors),
+        )
+    )
 
     # Add annotations for candidates
     for i, cand in enumerate(candidates):
         fig.add_annotation(
             x=-0.02,  # slightly left of the node
             y=y_pos[i],
-            xref="paper", yref="paper",
+            xref="paper",
+            yref="paper",
             text=cand,
             showarrow=False,
             font=dict(size=10, color="black"),
-            xanchor="right"
+            xanchor="right",
         )
 
     fig.show()
 
-
-    fig.update_layout(
-        title_text="Diagramme Sankey : Candidats → Mentions → Approbation/Rejet",
-        font_size=10
-    )
+    fig.update_layout(title_text="Diagramme Sankey : Candidats → Mentions → Approbation/Rejet", font_size=10)
     fig.show()
 
 
