@@ -2,15 +2,13 @@ name: Scheduled Data Export and Release
 
 on:
   schedule:
-    # Runs every Sunday at 03:00 UTC. Adjust the cron schedule as needed.
-    - cron: '2 1 * * 2'
-  # Allows you to run this workflow manually from the Actions tab for testing
+    # Runs every Sunday at 03:00 UTC. Adjust as needed.
+    - cron: '0 3 * * 0'
   workflow_dispatch:
 
 jobs:
   build-export-and-release:
     runs-on: ubuntu-latest
-    # These permissions are required to create a release and push a tag
     permissions:
       contents: write
 
@@ -18,15 +16,16 @@ jobs:
       - name: Checkout repository code
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
+      # CRITICAL: Use Python 3.13 to match your local environment
+      - name: Set up Python 3.13
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.13'
 
       - name: Install Poetry
         run: pip install poetry
 
-      # CRITICAL STEP: Remove old lock file to force fresh dependency resolution
+      # This ensures a fresh install based on the correct python version
       - name: Remove poetry.lock if it exists
         run: rm -f poetry.lock
 
@@ -37,16 +36,13 @@ jobs:
         run: poetry run python main_export.py --dest ./output
 
       - name: Archive the generated files
-        id: archive
         run: |
           ARCHIVE_NAME="data-export-$(date +'%Y-%m-%d').zip"
           zip -r $ARCHIVE_NAME ./output
           echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> $GITHUB_ENV
 
       - name: Generate release tag
-        id: generate_tag
         run: |
-          # Creates a unique tag like "data-release-AAAA-MM-DD-HH-MM"
           echo "RELEASE_TAG=data-release-$(date +'%Y-%m-%d-%H-%M')" >> $GITHUB_ENV
 
       - name: Create Git Tag
@@ -64,9 +60,7 @@ jobs:
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           release_name: Data Export ${{ env.RELEASE_TAG }}
-          body: |
-            Automated data export and generated graphs.
-            The attached zip file contains all PNG and JSON outputs.
+          body: Automated data export and generated graphs. The attached zip file contains all PNG and JSON outputs.
           draft: false
           prerelease: false
 
