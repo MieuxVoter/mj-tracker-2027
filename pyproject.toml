@@ -24,6 +24,5 @@ python = "^3.11"
 pandas = "^2.2.0"
 plotly = "^5.15.0"
 seaborn = "^0.13.0"
-kaleido = "^0.2.1" # Kaleido is often best kept with a flexible upper bound
 typed-argument-parser = "^1.8.0"
 requests = "^2.31.0"
