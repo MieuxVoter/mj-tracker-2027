@@ -10,8 +10,13 @@ version = "0.1.0"
 description = "A tracker for election polls using majority judgment"
 authors = ["Pierre Puchaud <puchaud.pierre@gmail.com>", "Rémy Poulain <mail@mail.com>", "Samuel Ballé <mail@mail.com>", "Pierre-Louis Guhur <pierrelouisguhur@gmail.com>"]
 
+# This is the corrected section
+packages = [
+    { include = "mjtracker" },
+]
+
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.dependencies]
@@ -22,6 +27,3 @@ seaborn = "~0.11.2"
 kaleido = "0.2.1"
 typed-argument-parser = "~1.7.2"
 requests = "~2.27.1"
-
-[tool.poetry.packages]
-mjtracker = "mjtracker"
