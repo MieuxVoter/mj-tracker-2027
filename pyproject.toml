@@ -24,6 +24,5 @@ python = "^3.13"
 pandas = "^2.3.0"
 plotly = "^6.3.0"
 seaborn = "^0.13.0"
-kaleido = "^0.2.1" # Using the latest compatible version for Poetry
 typed-argument-parser = "^1.10.0"
 requests = "^2.32.0"
