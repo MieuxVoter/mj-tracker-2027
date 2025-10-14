@@ -32,6 +32,9 @@ jobs:
       - name: Install project dependencies
         run: poetry install
 
+      - name: Install kaleido
+        run: pip install -U kaleido
+
       - name: Run the export script
         run: poetry run python main_export.py --dest ./output
 
