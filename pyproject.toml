@@ -9,8 +9,6 @@ name = "mjtracker"
 version = "0.1.0"
 description = "A tracker for election polls using majority judgment"
 authors = ["Pierre Puchaud <puchaud.pierre@gmail.com>", "Rémy Poulain <mail@mail.com>", "Samuel Ballé <mail@mail.com>", "Pierre-Louis Guhur <pierrelouisguhur@gmail.com>"]
-
-# This is the corrected section
 packages = [
     { include = "mjtracker" },
 ]
@@ -20,10 +18,12 @@ requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.dependencies]
-python = "^3.11"
-pandas = "^2.2.0"
-plotly = "^5.15.0"
+python = "^3.13"
+
+# Updated to match the versions from your conda list
+pandas = "^2.3.0"
+plotly = "^6.3.0"
 seaborn = "^0.13.0"
-typed-argument-parser = "^1.8.0"
-requests = "^2.31.0"
-kaleido = "^0.2.1"
+kaleido = "^0.2.1" # Using the latest compatible version for Poetry
+typed-argument-parser = "^1.10.0"
+requests = "^2.32.0"
