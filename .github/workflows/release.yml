@@ -1,14 +1,16 @@
-name: Scheduled Data Export and Release
+name: Scheduled Data Release with Conda
 
 on:
   schedule:
     # Runs every Sunday at 03:00 UTC. Adjust as needed.
     - cron: '0 3 * * 0'
+  # Allows you to run this workflow manually from the Actions tab for testing
   workflow_dispatch:
 
 jobs:
   build-export-and-release:
     runs-on: ubuntu-latest
+    # Required to create a release and push a tag
     permissions:
       contents: write
 
@@ -16,37 +18,33 @@ jobs:
       - name: Checkout repository code
         uses: actions/checkout@v4
 
-      # CRITICAL: Use Python 3.13 to match your local environment
-      - name: Set up Python 3.13
-        uses: actions/setup-python@v5
+      - name: Set up Micromamba environment
+        uses: mamba-org/setup-micromamba@v1
         with:
-          python-version: '3.13'
-
-      - name: Install Poetry
-        run: pip install poetry
-
-      # This ensures a fresh install based on the correct python version
-      - name: Remove poetry.lock if it exists
-        run: rm -f poetry.lock
-
-      - name: Install project dependencies
-        run: poetry install
-
+          # Use the environment file you just created
+          environment-file: environment.yml
+          # Cache the environment for faster runs in the future
+          cache-environment: true
+   
       - name: Install kaleido
         run: pip install -U kaleido
 
       - name: Run the export script
-        run: poetry run python main_export.py --dest ./output
+        run: |
+          python main_export.py --dest ./output
+        shell: bash -el {0}
 
       - name: Archive the generated files
         run: |
           ARCHIVE_NAME="data-export-$(date +'%Y-%m-%d').zip"
           zip -r $ARCHIVE_NAME ./output
           echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> $GITHUB_ENV
+        shell: bash -el {0}
 
       - name: Generate release tag
         run: |
           echo "RELEASE_TAG=data-release-$(date +'%Y-%m-%d-%H-%M')" >> $GITHUB_ENV
+        shell: bash -el {0}
 
       - name: Create Git Tag
         run: |
@@ -54,6 +52,7 @@ jobs:
           git config user.email "github-actions@github.com"
           git tag ${{ env.RELEASE_TAG }} -a -m "Automated data export for ${{ env.RELEASE_TAG }}"
           git push origin ${{ env.RELEASE_TAG }}
+        shell: bash -el {0}
 
       - name: Create Release
         id: create_release
