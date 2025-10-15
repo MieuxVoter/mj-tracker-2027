@@ -34,7 +34,7 @@ class Arguments(tap.Tap):
 
 def main_mj(args: Arguments):
     args = Arguments().parse_args(known_only=True)
-    args.dest = base_args.dest / "mj"
+    args.dest = args.dest / "mj"
     args.dest.mkdir(exist_ok=True, parents=True)
 
     aggregation_mode = AggregationMode.NO_AGGREGATION
@@ -59,7 +59,7 @@ def main_mj(args: Arguments):
 
 def main_approval(args: Arguments):
     args = Arguments().parse_args(known_only=True)
-    args.dest = base_args.dest / "approval"
+    args.dest = args.dest / "approval"
     args.dest.mkdir(exist_ok=True, parents=True)
 
     aggregation_mode = AggregationMode.NO_AGGREGATION
