@@ -10,7 +10,7 @@ on:
 jobs:
   build-export-and-release:
     runs-on: ubuntu-latest
-    # Required to create a release and push a tag
+    # Required to create/update a release and push a tag
     permissions:
       contents: write
 
@@ -21,57 +21,38 @@ jobs:
       - name: Set up Micromamba environment
         uses: mamba-org/setup-micromamba@v1
         with:
-          # Use the environment file you just created
           environment-file: environment.yml
-          # Cache the environment for faster runs in the future
           cache-environment: true
-   
-      - name: Install kaleido
-        run: pip install -U kaleido
+
+      - name: Install local project package
+        run: pip install . --no-deps
+        shell: bash -el {0}
 
       - name: Run the export script
-        run: |
-          python main_export.py --dest ./output
+        run: python main_export.py --dest ./output
         shell: bash -el {0}
 
       - name: Archive the generated files
         run: |
-          ARCHIVE_NAME="data-export-$(date +'%Y-%m-%d').zip"
-          zip -r $ARCHIVE_NAME ./output
-          echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> $GITHUB_ENV
+          zip -r data-export.zip ./output
         shell: bash -el {0}
 
-      - name: Generate release tag
-        run: |
-          echo "RELEASE_TAG=data-release-$(date +'%Y-%m-%d-%H-%M')" >> $GITHUB_ENV
-        shell: bash -el {0}
-
-      - name: Create Git Tag
+      - name: Update the 'latest-data' Git Tag
         run: |
           git config user.name "GitHub Actions"
           git config user.email "github-actions@github.com"
-          git tag ${{ env.RELEASE_TAG }} -a -m "Automated data export for ${{ env.RELEASE_TAG }}"
-          git push origin ${{ env.RELEASE_TAG }}
+          git tag -f latest-data -m "Latest data export"
+          git push -f origin latest-data
         shell: bash -el {0}
 
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Update or Create Release
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ env.RELEASE_TAG }}
-          release_name: Data Export ${{ env.RELEASE_TAG }}
-          body: Automated data export and generated graphs. The attached zip file contains all PNG and JSON outputs.
-          draft: false
-          prerelease: false
-
-      - name: Upload Archive to Release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./${{ env.ARCHIVE_NAME }}
-          asset_name: ${{ env.ARCHIVE_NAME }}
-          asset_content_type: application/zip
+          # This tells the action to attach the static file to the release
+          artifacts: "data-export.zip"
+          # This tells the action to update the release if it already exists
+          allowUpdates: true
+          # This tells the action to use the static tag we just pushed
+          tag: latest-data
+          # This ensures old versions of the asset are replaced
+          replacesArtifacts: true
