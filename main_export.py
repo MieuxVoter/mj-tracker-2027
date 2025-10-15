@@ -33,10 +33,9 @@ class Arguments(tap.Tap):
 
 
 def main_mj(args: Arguments):
-    mj_dest = args.dest / "mj"
-    mj_dest.mkdir(exist_ok=True, parents=True)
-    mj_args = args.copy()
-    mj_args.dest = mj_dest
+    args = Arguments().parse_args(known_only=True)
+    args.dest = base_args.dest / "mj"
+    args.dest.mkdir(exist_ok=True, parents=True)
 
     aggregation_mode = AggregationMode.NO_AGGREGATION
 
@@ -52,17 +51,16 @@ def main_mj(args: Arguments):
     si.apply_mj()
 
     # generate all the graphs
-    batch_merit_profile(si, mj_args, auto_text=False)
-    batch_ranking(si, mj_args)
-    batch_time_merit_profile(si, mj_args, aggregation_mode, polls=PollingOrganizations.IPSOS)
-    batch_ranked_time_merit_profile(si, mj_args, aggregation_mode, polls=PollingOrganizations.IPSOS)
+    batch_merit_profile(si, args, auto_text=False)
+    batch_ranking(si, args)
+    batch_time_merit_profile(si, args, aggregation_mode, polls=PollingOrganizations.IPSOS)
+    batch_ranked_time_merit_profile(si, args, aggregation_mode, polls=PollingOrganizations.IPSOS)
 
 
 def main_approval(args: Arguments):
-    approval_dest = args.dest / "approval"
-    approval_dest.mkdir(exist_ok=True, parents=True)
-    approval_args = args.copy()
-    approval_args.dest = approval_dest
+    args = Arguments().parse_args(known_only=True)
+    args.dest = base_args.dest / "approval"
+    args.dest.mkdir(exist_ok=True, parents=True)
 
     aggregation_mode = AggregationMode.NO_AGGREGATION
 
@@ -78,10 +76,10 @@ def main_approval(args: Arguments):
     si.apply_approval(up_to="plutôt satisfait")
 
     # generate all the graphs
-    batch_approval_profile(si, approval_args, auto_text=True)
-    batch_time_approval_profiles(si, approval_args, aggregation_mode, polls=PollingOrganizations.IPSOS)
-    batch_ranking(si, approval_args, voting_str_title="à l'approbation", show_grade_area=False)
-    batch_ranked_time_approval_profile(si, approval_args, aggregation_mode, polls=PollingOrganizations.IPSOS)
+    batch_approval_profile(si, args, auto_text=True)
+    batch_time_approval_profiles(si, args, aggregation_mode, polls=PollingOrganizations.IPSOS)
+    batch_ranking(si, args, voting_str_title="à l'approbation", show_grade_area=False)
+    batch_ranked_time_approval_profile(si, args, aggregation_mode, polls=PollingOrganizations.IPSOS)
 
 
 if __name__ == "__main__":
