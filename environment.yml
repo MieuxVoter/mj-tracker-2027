@@ -1,0 +1,19 @@
+name: mjtracker-env
+
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  # --- Core Dependencies from Conda-Forge ---
+  - python=3.13
+  - pandas
+  - plotly
+  - seaborn
+  - typed-argument-parser
+  - requests
+  - pip
+
+  # --- Dependencies to be installed by Pip ---
+  - pip:
+    - kaleido
