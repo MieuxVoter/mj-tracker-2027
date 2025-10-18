@@ -1,8 +1,12 @@
+"""obsolete"""
+
 from mjtracker import SurveysInterface, SurveyInterface
 
 
 def test_import_and_play_with_interface():
-    si = SurveysInterface.load("/home/pierre/Documents/Mieux_voter/database-mj-2027/mj-database-2027/mj2027.csv")
+    si = SurveysInterface.load_from_url(
+        "https://raw.githubusercontent.com/MieuxVoter/mj-database-2027/refs/heads/main/mj2027.csv"
+    )
     a_survey = si.surveys[0]
     si._intentions_colheaders
     one_survey = si.select_survey(a_survey)

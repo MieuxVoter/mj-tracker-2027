@@ -1,3 +1,5 @@
+"""obsolete"""
+
 import pandas as pd
 from mjtracker import apply_mj, mj, interface_to_official_lib
 

@@ -50,13 +50,13 @@ def main_mj(args: Arguments):
 
     # Apply the Majority Judgement rule
     si.apply_mj()
-    
+
     # Export JSON standard
     si.df.to_json(args.dest / "latest_survey_mj.json", orient="records")
-    
+
     # Export JSON compact optimisé
     export_compact_json(si.df, args.dest / "latest_survey_mj_compact.json", voting_method="majority_judgment")
-    
+
     # Export CSV
     si.df.to_csv(args.dest / "latest_survey_mj.csv", index=False)
 
@@ -84,13 +84,13 @@ def main_approval(args: Arguments):
 
     # Apply the Majority Judgement rule
     si.apply_approval(up_to="plutôt satisfait")
-    
+
     # Export JSON standard
     si.df.to_json(args.dest / "latest_survey_approval.json", orient="records")
-    
+
     # Export JSON compact optimisé
     export_compact_json(si.df, args.dest / "latest_survey_approval_compact.json", voting_method="approval")
-    
+
     # Export CSV
     si.df.to_csv(args.dest / "latest_survey_approval.csv", index=False)
 
