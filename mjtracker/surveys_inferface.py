@@ -65,9 +65,11 @@ class SurveysInterface:
         )
         # df_surveys.reset_index(drop=True, inplace=True)
 
-        # sanity conversions
+        # sanity conversions - force float64 to avoid dtype warnings later
         for i in range(7):
-            df_surveys[f"intention_mention_{i + 1}"] = pd.to_numeric(df_surveys[f"intention_mention_{i + 1}"])
+            df_surveys[f"intention_mention_{i + 1}"] = pd.to_numeric(
+                df_surveys[f"intention_mention_{i + 1}"], errors="coerce"
+            ).astype("float64")
         # convert mention number to integer
         df_surveys["nombre_mentions"] = pd.to_numeric(df_surveys["nombre_mentions"])
 
