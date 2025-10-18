@@ -34,7 +34,17 @@ jobs:
 
       - name: Archive the generated files
         run: |
-          zip -r data-export.zip ./output
+          cd output
+          zip -r ../data-export.zip mj approval
+          cd ..
+        shell: bash -el {0}
+
+      - name: Copy compact files for direct access
+        run: |
+          cp output/approval/latest_survey_approval_compact.json ./ || true
+          cp output/approval/latest_survey_approval.csv ./ || true
+          cp output/mj/latest_survey_mj_compact.json ./ || true
+          cp output/mj/latest_survey_mj.csv ./ || true
         shell: bash -el {0}
 
       - name: Update the 'latest-data' Git Tag
@@ -48,8 +58,13 @@ jobs:
       - name: Update or Create Release
         uses: ncipollo/release-action@v1
         with:
-          # This tells the action to attach the static file to the release
-          artifacts: "data-export.zip"
+          # This tells the action to attach the files to the release
+          artifacts: |
+            data-export.zip
+            latest_survey_approval_compact.json
+            latest_survey_approval.csv
+            latest_survey_mj_compact.json
+            latest_survey_mj.csv
           # This tells the action to update the release if it already exists
           allowUpdates: true
           # This tells the action to use the static tag we just pushed

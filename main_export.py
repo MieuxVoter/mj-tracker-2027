@@ -9,6 +9,7 @@ from mjtracker.batch_plots import (
     batch_time_approval_profiles,
     batch_ranked_time_approval_profile,
 )
+from mjtracker.export_compact_json import export_compact_json
 
 # from mjtracker.smp_data import SMPData # not available yet.
 from mjtracker.misc.enums import AggregationMode, PollingOrganizations, UntilRound
@@ -27,7 +28,7 @@ class Arguments(tap.Tap):
     html: bool = False
     png: bool = True
     json: bool = True
-    svg: bool = False
+    svg: bool = True
     csv: str = "https://raw.githubusercontent.com/MieuxVoter/mj-database-2027/refs/heads/main/mj2027.csv"
     dest: Path = Path("../trackerapp/data/graphs/mj")
 
@@ -49,6 +50,15 @@ def main_mj(args: Arguments):
 
     # Apply the Majority Judgement rule
     si.apply_mj()
+    
+    # Export JSON standard
+    si.df.to_json(args.dest / "latest_survey_mj.json", orient="records")
+    
+    # Export JSON compact optimisé
+    export_compact_json(si.df, args.dest / "latest_survey_mj_compact.json", voting_method="majority_judgment")
+    
+    # Export CSV
+    si.df.to_csv(args.dest / "latest_survey_mj.csv", index=False)
 
     # generate all the graphs
     batch_merit_profile(si, args, auto_text=False)
@@ -74,6 +84,15 @@ def main_approval(args: Arguments):
 
     # Apply the Majority Judgement rule
     si.apply_approval(up_to="plutôt satisfait")
+    
+    # Export JSON standard
+    si.df.to_json(args.dest / "latest_survey_approval.json", orient="records")
+    
+    # Export JSON compact optimisé
+    export_compact_json(si.df, args.dest / "latest_survey_approval_compact.json", voting_method="approval")
+    
+    # Export CSV
+    si.df.to_csv(args.dest / "latest_survey_approval.csv", index=False)
 
     # generate all the graphs
     batch_approval_profile(si, args, auto_text=True)
