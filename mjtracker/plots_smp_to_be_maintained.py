@@ -1,3 +1,18 @@
+"""
+Legacy plotting functions for SMP (Single Member Plurality) data analysis.
+
+⚠️ MAINTENANCE MODE ⚠️
+This module contains older plotting functions for traditional polling data (intentions de vote).
+New code should use batch_plots_smp.py or plots_v2.py instead.
+
+These functions are kept for:
+- Backward compatibility with existing scripts
+- Historical SMP data visualization
+- Comparing traditional polls with majority judgment results
+
+If you need to add new features, please use the newer modules.
+"""
+
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots

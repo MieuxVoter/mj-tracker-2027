@@ -1,3 +1,18 @@
+"""
+Legacy plotting functions for majority judgment analysis.
+
+⚠️ MAINTENANCE MODE ⚠️
+This module contains older plotting functions that are being phased out.
+New code should use plots_v2.py instead.
+
+These functions are kept for:
+- Backward compatibility with existing scripts
+- Historical data visualization
+- Comparing results with new implementation
+
+If you need to add new features, please use plots_v2.py.
+"""
+
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots

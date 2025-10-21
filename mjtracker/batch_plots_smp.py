@@ -1,6 +1,8 @@
 from typing import Iterable
 
-from .surveys_inferface import SurveysInterface
+from pathlib import Path
+import plotly.graph_objects as go
+from .surveys_interface import SurveysInterface
 from .plots import (
     plot_merit_profiles,
     ranking_plot,
