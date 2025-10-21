@@ -1,3 +1,18 @@
+"""
+Legacy plotting functions for majority judgment analysis.
+
+⚠️ MAINTENANCE MODE ⚠️
+This module contains older plotting functions that are being phased out.
+New code should use plots_v2.py instead.
+
+These functions are kept for:
+- Backward compatibility with existing scripts
+- Historical data visualization
+- Comparing results with new implementation
+
+If you need to add new features, please use plots_v2.py.
+"""
+
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -6,14 +21,21 @@ import numpy as np
 import pandas as pd
 from pandas import DataFrame
 
-from . import SurveyInterface
-from . import SurveysInterface
-from .smp_data import SMPData
-from .utils import get_intentions_colheaders, get_candidates, get_grades, rank2str
-from .misc.enums import PollingOrganizations, AggregationMode
-from .constants import CANDIDATS
-from .color_utils import get_grade_color_palette
-from .plot_utils import load_colors, _add_image_to_fig, _generate_windows_size, _add_election_date
+from ..core import SurveyInterface
+from ..core import SurveysInterface
+from ..core.smp_data import SMPData
+from ..utils.utils import get_intentions_colheaders, get_candidates, get_grades, rank2str
+from ..misc.enums import PollingOrganizations, AggregationMode
+from ..constants import CANDIDATS
+from ..plotting.color_utils import get_grade_color_palette
+from ..plotting.plot_utils import (
+    load_colors,
+    _add_image_to_fig,
+    _generate_windows_size,
+    _add_election_date,
+    _extended_name_annotations,
+)
+from ..plotting.plots import ranking_plot
 
 
 def plot_animated_merit_profile(

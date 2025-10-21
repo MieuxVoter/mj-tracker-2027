@@ -5,10 +5,10 @@ from seaborn import color_palette
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
-from .smp_data import SMPData
-from .utils import get_intentions_colheaders, get_candidates, get_grades, rank2str
-from .misc.enums import PollingOrganizations, AggregationMode
-from .constants import CANDIDATS
+from ..core.smp_data import SMPData
+from ..utils.utils import get_intentions_colheaders, get_candidates, get_grades, rank2str
+from ..misc.enums import PollingOrganizations, AggregationMode
+from ..constants import CANDIDATS
 
 FIRST_ROUND_DATE = "2022-04-10"
 URL_IMAGE_MIEUX_VOTER = "https://raw.githubusercontent.com/MieuxVoter/majority-judgment-tracker/main/icons/logo.svg"

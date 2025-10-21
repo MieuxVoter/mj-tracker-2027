@@ -6,15 +6,17 @@ from .plots import (
     plot_time_merit_profile,
     plot_time_merit_profile_all_polls,
     plot_ranked_time_merit_profile,
+    comparison_ranking_plot,
+    plot_comparison_intention,
 )
 from .plot_utils import export_fig
-from .utils import (
+from ..utils.utils import (
     get_list_survey,
     get_grades,
     get_candidates,
 )
-from .misc.enums import PollingOrganizations, AggregationMode
-from .smp_data import SMPData
+from ..misc.enums import PollingOrganizations, AggregationMode
+from ..core.smp_data import SMPData
 
 
 def batch_merit_profile(df, args, auto_text: bool = False):

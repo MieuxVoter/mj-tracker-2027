@@ -1,6 +1,8 @@
 from typing import Iterable
 
-from .surveys_inferface import SurveysInterface
+from pathlib import Path
+import plotly.graph_objects as go
+from ..core.surveys_interface import SurveysInterface
 from .plot_utils import export_fig
 from .plots_v2 import (
     plot_merit_profiles as pmp,
@@ -12,8 +14,8 @@ from .plots_v2 import (
     plot_time_approval_profiles,
     plot_ranked_time_approval_profile,
 )
-from .misc.enums import PollingOrganizations, AggregationMode
-from .smp_data import SMPData
+from ..misc.enums import PollingOrganizations, AggregationMode
+from ..core.smp_data import SMPData
 
 
 def batch_merit_profile(si: SurveysInterface, args, auto_text: bool = False):

@@ -1,3 +1,18 @@
+"""
+Legacy plotting functions for SMP (Single Member Plurality) data analysis.
+
+⚠️ MAINTENANCE MODE ⚠️
+This module contains older plotting functions for traditional polling data (intentions de vote).
+New code should use batch_plots_smp.py or plots_v2.py instead.
+
+These functions are kept for:
+- Backward compatibility with existing scripts
+- Historical SMP data visualization
+- Comparing traditional polls with majority judgment results
+
+If you need to add new features, please use the newer modules.
+"""
+
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -5,12 +20,12 @@ from seaborn import color_palette
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
-from .smp_data import SMPData
-from .utils import get_intentions_colheaders, get_candidates, get_grades, rank2str
-from .misc.enums import PollingOrganizations, AggregationMode
-from .constants import CANDIDATS
-from .plot_utils import load_colors, _extended_name_annotations, _add_image_to_fig, _add_election_date
-from .plots import plot_time_merit_profile
+from ..core.smp_data import SMPData
+from ..utils.utils import get_intentions_colheaders, get_candidates, get_grades, rank2str
+from ..misc.enums import PollingOrganizations, AggregationMode
+from ..constants import CANDIDATS
+from ..plotting.plot_utils import load_colors, _extended_name_annotations, _add_image_to_fig, _add_election_date
+from ..plotting.plots import plot_time_merit_profile
 
 
 def plot_intention(

@@ -1,19 +1,15 @@
 from typing import Iterable
 
-from .surveys_inferface import SurveysInterface
-from .plots import (
-    plot_merit_profiles,
-    ranking_plot,
-    comparison_ranking_plot,
-    plot_time_merit_profile,
-    plot_time_merit_profile_all_polls,
-    plot_ranked_time_merit_profile,
-    plot_comparison_intention,
-    export_fig,
-)
-from .plots_v2 import plot_merit_profiles as pmp, ranking_plot as rkp, plot_time_merit_profile as ptmp
-from .misc.enums import PollingOrganizations, AggregationMode
-from .smp_data import SMPData
+from pathlib import Path
+import plotly.graph_objects as go
+from ..core.surveys_interface import SurveysInterface
+
+# Use validated SMP plotting functions
+from .plots_smp import comparison_ranking_plot, plot_comparison_intention
+
+from .plot_utils import export_fig
+from ..misc.enums import PollingOrganizations, AggregationMode
+from ..core.smp_data import SMPData
 
 
 def batch_comparison_ranking(si: SurveysInterface, smp_data: SMPData, args, on_rolling_data: bool = False):
@@ -56,6 +52,10 @@ def batch_comparison_intention(
                     sponsor=si_poll.sponsors_string,
                     on_rolling_data=on_rolling_data,
                 )
+                # Skip if candidate has no SMP data
+                if fig is None:
+                    continue
+                    
                 filename = f"intention_{aggregation.string_label}_{candidate}_{si_poll.sources_string}"
                 print(filename)
                 export_fig(fig, args, filename)

@@ -8,15 +8,15 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .misc.enums import AggregationMode
-from .constants import NO_OPINION_GRADES
-from .utils import check_sum_intentions
-from .interface_mj import interface_to_official_lib
-from .libs.majority_judgment_2 import majority_judgment as mj
+from ..misc.enums import AggregationMode
+from ..constants import NO_OPINION_GRADES
+from ..utils.utils import check_sum_intentions
+from ..utils.interface_mj import interface_to_official_lib
+from ..libs.majority_judgment_2 import majority_judgment as mj
 
 
 # Get the path to the current script
-CURRENT_SCRIPT_PATH = Path(__file__).parent
+CURRENT_SCRIPT_PATH = Path(__file__).parent.parent
 STANDARDIZATION_CSV_PATH = CURRENT_SCRIPT_PATH / "standardisation.csv"
 
 
