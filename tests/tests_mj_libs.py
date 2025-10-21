@@ -1,7 +1,9 @@
 """obsolete"""
 
 import pandas as pd
-from mjtracker import apply_mj, mj, interface_to_official_lib
+from mjtracker import interface_to_official_lib
+from mjtracker.libs.majority_judgment import apply_mj
+from mjtracker.libs.majority_judgment_2 import majority_judgment as mj
 
 
 def test_mj_libs():

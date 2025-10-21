@@ -7,10 +7,10 @@ import pandas as pd
 from pandas import DataFrame
 from datetime import timedelta, datetime
 
-from . import SurveyInterface
-from . import SurveysInterface
-from .utils import get_intentions_colheaders, get_candidates, get_grades, rank2str
-from .misc.enums import PollingOrganizations, AggregationMode
+from ..core import SurveyInterface
+from ..core import SurveysInterface
+from ..utils.utils import get_intentions_colheaders, get_candidates, get_grades, rank2str
+from ..misc.enums import PollingOrganizations, AggregationMode
 from .color_utils import get_grade_color_palette
 from .plot_utils import load_colors, export_fig, _extended_name_annotations, _add_image_to_fig, _generate_windows_size
 

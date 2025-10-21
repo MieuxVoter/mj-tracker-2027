@@ -7,7 +7,7 @@ import pandas as pd
 import datetime
 import warnings
 
-from .constants import CANDIDATS
+from ..constants import CANDIDATS
 
 
 class SMPData:

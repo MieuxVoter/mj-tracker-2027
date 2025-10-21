@@ -11,11 +11,11 @@ import urllib.parse
 import numpy as np
 import pandas as pd
 
-from .misc.enums import PollingOrganizations, AggregationMode, Candidacy, UntilRound
+from ..misc.enums import PollingOrganizations, AggregationMode, Candidacy, UntilRound
 from .survey_interface import SurveyInterface
 
 # Get the path to the current script
-CURRENT_SCRIPT_PATH = Path(__file__).parent
+CURRENT_SCRIPT_PATH = Path(__file__).parent.parent
 STANDARDIZATION_CSV_PATH = CURRENT_SCRIPT_PATH / "standardisation.csv"
 MAX_MENTIONS_IN_DATAFRAME = 7  # Maximum number of mentions in the dataframe, used for sanity checks
 

@@ -20,12 +20,12 @@ from seaborn import color_palette
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
-from .smp_data import SMPData
-from .utils import get_intentions_colheaders, get_candidates, get_grades, rank2str
-from .misc.enums import PollingOrganizations, AggregationMode
-from .constants import CANDIDATS
-from .plot_utils import load_colors, _extended_name_annotations, _add_image_to_fig, _add_election_date
-from .plots import plot_time_merit_profile
+from ..core.smp_data import SMPData
+from ..utils.utils import get_intentions_colheaders, get_candidates, get_grades, rank2str
+from ..misc.enums import PollingOrganizations, AggregationMode
+from ..constants import CANDIDATS
+from ..plotting.plot_utils import load_colors, _extended_name_annotations, _add_image_to_fig, _add_election_date
+from ..plotting.plots import plot_time_merit_profile
 
 
 def plot_intention(

@@ -2,7 +2,7 @@ from typing import Iterable
 
 from pathlib import Path
 import plotly.graph_objects as go
-from .surveys_interface import SurveysInterface
+from ..core.surveys_interface import SurveysInterface
 from .plots import (
     plot_merit_profiles,
     ranking_plot,
@@ -14,8 +14,8 @@ from .plots import (
     export_fig,
 )
 from .plots_v2 import plot_merit_profiles as pmp, ranking_plot as rkp, plot_time_merit_profile as ptmp
-from .misc.enums import PollingOrganizations, AggregationMode
-from .smp_data import SMPData
+from ..misc.enums import PollingOrganizations, AggregationMode
+from ..core.smp_data import SMPData
 
 
 def batch_comparison_ranking(si: SurveysInterface, smp_data: SMPData, args, on_rolling_data: bool = False):
