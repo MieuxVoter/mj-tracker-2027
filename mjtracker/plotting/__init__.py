@@ -8,6 +8,7 @@ __all__ = [
     # Module names available
     "plots",
     "plots_v2",
+    "plots_smp",
     "plot_utils",
     "color_utils",
     "batch_plots",

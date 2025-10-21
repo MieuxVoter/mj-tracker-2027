@@ -361,6 +361,14 @@ class SMPData:
             index_row = df_date.index
             df_rank_smp.loc[index_row, "rang"] = [i + 1 for i in range(nb_candidates)]
 
+        # Add aliases for compatibility with plotting functions
+        df_rank_smp["end_date"] = df_rank_smp["fin_enquete"]
+        df_rank_smp["candidate"] = df_rank_smp["candidat"]
+        
+        # Convert dates to datetime for proper plotting
+        df_rank_smp["fin_enquete"] = pd.to_datetime(df_rank_smp["fin_enquete"])
+        df_rank_smp["end_date"] = pd.to_datetime(df_rank_smp["end_date"])
+
         return df_rank_smp
 
     def get_intentions(self) -> pd.DataFrame:
@@ -398,5 +406,13 @@ class SMPData:
                     [df_smp_data, pd.DataFrame([row_to_add])],
                     ignore_index=True
                 )
+
+        # Add aliases for compatibility with plotting functions
+        df_smp_data["end_date"] = df_smp_data["fin_enquete"]
+        df_smp_data["candidate"] = df_smp_data["candidat"]
+        
+        # Convert dates to datetime for proper plotting
+        df_smp_data["fin_enquete"] = pd.to_datetime(df_smp_data["fin_enquete"])
+        df_smp_data["end_date"] = pd.to_datetime(df_smp_data["end_date"])
 
         return df_smp_data
