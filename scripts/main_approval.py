@@ -1,6 +1,6 @@
 from pathlib import Path
 import tap
-from mjtracker.batch_plots import (
+from mjtracker.plotting import (
     batch_approval_profile,
     batch_ranking,
     batch_time_merit_profile,
@@ -10,7 +10,6 @@ from mjtracker.batch_plots import (
     batch_ranked_time_approval_profile,
 )
 
-# from mjtracker.smp_data import SMPData # not available yet.
 from mjtracker.misc.enums import AggregationMode, PollingOrganizations, UntilRound
 from mjtracker import SurveysInterface
 

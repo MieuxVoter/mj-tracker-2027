@@ -5,6 +5,7 @@ from mjtracker.core.smp_data import SMPData
 from plotly.graph_objs import Figure
 import plotly.io as pio
 
+
 class Arguments(tap.Tap):
     merit_profiles: bool = True
     comparison_ranking_plot: bool = True
@@ -54,25 +55,25 @@ def main_smp(args: Arguments):
         # print(f"  ✓ Saved: {output_png}")
         # Clone the figure to avoid modifying the original
         fig_export = Figure(fig_all)
-        
+
         # Ensure all traces are visible and properly configured for static export
         fig_export.update_layout(
             width=2800,
             height=1600,
             margin=dict(l=80, r=200, t=100, b=80),
         )
-        
+
         # Force update all traces to ensure visibility
         for trace in fig_export.data:
             trace.update(visible=True)
-        
+
         output_png = smp_dest / "all_candidates_2027.png"
         # fig_export.write_image(str(output_png), width=2800, height=1600, scale=1)
         # print(f"  ✓ Saved: {output_png}")
 
         # Try using to_image directly
         img_bytes = pio.to_image(fig_all, format="png", width=2800, height=1600, scale=2, engine="kaleido")
-        
+
         with open(output_png, "wb") as f:
             f.write(img_bytes)
 
@@ -88,7 +89,6 @@ def main_smp(args: Arguments):
         output_json = smp_dest / "all_candidates_2027.json"
         write_json(fig_all, output_json)
         print(f"  ✓ Saved: {output_json}")
-
 
 
 if __name__ == "__main__":

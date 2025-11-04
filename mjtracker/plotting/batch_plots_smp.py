@@ -55,7 +55,7 @@ def batch_comparison_intention(
                 # Skip if candidate has no SMP data
                 if fig is None:
                     continue
-                    
+
                 filename = f"intention_{aggregation.string_label}_{candidate}_{si_poll.sources_string}"
                 print(filename)
                 export_fig(fig, args, filename)
