@@ -4,10 +4,9 @@ SMP Intentions plotting module.
 This module provides clean, maintainable functions for plotting aggregated
 intention data for the 2027 presidential election. It handles gap detection,
 segment splitting, error bands, and annotations.
-
-Based on sandbox/plot_intentions_2027.py but refactored following clean code principles.
 """
 
+import datetime
 from typing import Optional, List, Tuple
 import pandas as pd
 import plotly.graph_objects as go
@@ -110,7 +109,12 @@ def _get_candidate_color(candidate: str, colored: bool) -> str:
         return "#d3d3d3"
 
     colors = load_colors()
-    return colors.get(candidate, {}).get("couleur", "#d3d3d3")
+    the_color = colors.get(candidate)
+
+    if the_color is None:
+        raise ValueError(f"No color for {candidate}.")
+
+    return the_color["couleur"]
 
 
 def _prepare_aggregation_dict(df: pd.DataFrame, col_intention: str) -> dict:
@@ -333,8 +337,7 @@ def _add_candidate_annotation(
     col_intention: str,
     color: str,
     show_rank: bool,
-    row: Optional[int],
-    col: Optional[int],
+    rank: Optional[int] = None,
 ) -> None:
     """Add text annotation for candidate's final value."""
     annotation_text = _extended_name_annotations(
@@ -345,17 +348,42 @@ def _add_candidate_annotation(
         breaks_in_names=True,
     )
 
+    if rank is None:
+        rank = segment_df["rang"].iloc[-1]
+    ### VERY MANUALLY TUNED POSITIONING BASED ON RANK ###
+    ### BUT IT WORKS FOR NOW ############################
+    if rank <= 2:
+        y_right = 36 * (1 - 1 / 20 * (rank - 1))
+    else:
+        y_right = 16 * (1 - 1 / 22 * (rank - 1))
+
+    y_left = segment_df[col_intention].iloc[-1]
+
     fig.add_annotation(
-        x=pd.to_datetime(segment_df["fin_enquete"].iloc[-1]),
-        y=segment_df[col_intention].iloc[-1],
+        # x=pd.to_datetime(segment_df["fin_enquete"].iloc[-1]),
+        # y=segment_df[col_intention].iloc[-1],
+        # today's date for x position, and is the ordered/ranked from bottom to top as function last candidate value rank
+        x=datetime.datetime.now(),
+        y=y_right,
         xanchor="left",
         xshift=10,
         yanchor="middle",
         text=f"<b>{annotation_text}</b>",
         font=dict(family="Arial", size=12, color=color),
         showarrow=False,
-        row=row,
-        col=col,
+    )
+
+    # link btween point and annotation
+    fig.add_trace(
+        go.Scatter(
+            x=[pd.to_datetime(segment_df["fin_enquete"].iloc[-1]), datetime.datetime.now()],
+            y=[y_left, y_right],
+            mode="lines",
+            line=dict(color="black", width=0.5, dash="dot"),
+            hoverinfo="skip",
+            showlegend=False,
+            legendgroup=None,
+        )
     )
 
 
@@ -368,6 +396,7 @@ def plot_intention(
     col: Optional[int] = None,
     max_gap_days: int = DEFAULT_MAX_GAP_DAYS,
     connect_gap_days: int = DEFAULT_CONNECT_GAP_DAYS,
+    annotation_rank: int = None,
 ) -> go.Figure:
     """
     Plot aggregated intention curve for a single candidate with intelligent gap detection.
@@ -402,7 +431,8 @@ def plot_intention(
         Maximum gap in days to keep points in same segment
     connect_gap_days : int, default=150
         Maximum gap to connect segments with dotted line
-
+    annotation_rank : int, default=None
+        The rank to place the annotation for the candidate (if None, uses last rank in data)
     Returns
     -------
     go.Figure
@@ -432,7 +462,13 @@ def plot_intention(
         if segments:
             _add_rank_marker(fig, segments[-1], candidate, col_intention, color, opacity, row, col)
             _add_candidate_annotation(
-                fig, segments[-1], candidate, col_intention, color, show_rank=False, row=row, col=col
+                fig,
+                segments[-1],
+                candidate,
+                col_intention,
+                color,
+                rank=annotation_rank,
+                show_rank=False,
             )
 
     return fig
@@ -689,11 +725,28 @@ def _plot_candidate_curves(
 ) -> go.Figure:
     """Add rolling average curves for a single candidate."""
     df_cand_ranks = df_ranks[df_ranks["candidat"] == candidate]
-
+    all_values_and_ranks = _get_last_candidates_values_and_rank_them(df_ranks)
     if not df_cand_ranks.empty:
-        fig = plot_intention(df_cand_ranks, col_intention="valeur", fig=fig, colored=colored)
+        fig = plot_intention(
+            df_cand_ranks,
+            col_intention="valeur",
+            fig=fig,
+            colored=colored,
+            annotation_rank=all_values_and_ranks[candidate][1],
+        )
 
     return fig
+
+
+def _get_last_candidates_values_and_rank_them(df_ranks: pd.DataFrame) -> dict[str, tuple[float, int]]:
+    """Get last values for all candidates and rank them."""
+    # keep only max date for each candidate
+    df_last = df_ranks.loc[df_ranks.groupby("candidat")["fin_enquete"].idxmax()]
+    # rank them by valeur
+    df_last = df_last.sort_values("valeur", ascending=False).reset_index(drop=True)
+    df_last["rang"] = df_last.index + 1
+
+    return {row["candidat"]: (row["valeur"], row["rang"]) for _, row in df_last.iterrows()}
 
 
 def _plot_candidate_raw_lines(
@@ -742,8 +795,8 @@ def _configure_figure_layout(fig: go.Figure, max_value: float) -> go.Figure:
     fig.update_yaxes(title="Intention de vote (%)", range=[0, max(40, max_value + 5)])
     fig.update_xaxes(title="Date de fin d'enquête", type="date")
 
-    title = "<b>Intentions de vote agrégées (tous scénarios confondus) - Élection présidentielle 2027</b><br>"
-    title += f"<sub>Source: presidentielle2027.json | Moyenne mobile sur 14 jours</sub>"
+    title = "<b>Élection présidentielle 2027</b><br>Intentions de vote agrégées (tous scénarios confondus)<br>"
+    title += f"<sub>Source: github.com/MieuxVoter/presidentielle2027 | Moyenne mobile sur 14 jours</sub>"
 
     fig.update_layout(
         title=dict(text=title, x=0.5, xanchor="center"),
@@ -841,5 +894,19 @@ def plot_aggregated_intentions(
         colored = _should_highlight_candidate(candidate, candidates_to_highlight)
         fig = _plot_candidate_curves(fig, candidate, df_ranks, colored)
     fig = _configure_figure_layout(fig, df_ranks["valeur"].max())
+
+    # THIRD: vertical bar for today's date
+    fig.add_trace(
+        go.Scatter(
+            x=[pd.Timestamp.today(), pd.Timestamp.today()],
+            y=[0, max(40, df_ranks["valeur"].max() + 5)],
+            mode="lines",
+            line=dict(color="black", width=1, dash="dash"),
+            hoverinfo="skip",
+            showlegend=False,
+            legendgroup=None,
+            text=["Aujourd'hui"],
+        )
+    )
 
     return fig

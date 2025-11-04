@@ -27,6 +27,7 @@ class AggregationMode(Enum):
 
     NO_AGGREGATION = "None"
     FOUR_MENTIONS = "to_4_mentions"
+    APPROVAL = "approval"
 
     @cached_property
     def map(self):
@@ -41,6 +42,10 @@ class AggregationMode(Enum):
             inputs = df_standardisation["mention"].tolist()
             outputs = df_standardisation["to_4_mentions"].tolist()
             return dict(zip(inputs, outputs))
+        elif self == self.APPROVAL:
+            inputs = df_standardisation["mention"].tolist()
+            outputs = df_standardisation["approval"].tolist()
+            return dict(zip(inputs, outputs))
 
     def potential_grades(self, grade: str):
         """Give a list of all the potential grades to be converted for a one of the new grades"""
@@ -52,6 +57,12 @@ class AggregationMode(Enum):
             values = df_standardisation[df_standardisation["to_4_mentions"] == grade]["mention"].tolist()
             # unique only
             return list(dict.fromkeys(values))
+        elif self == self.APPROVAL:
+            df_standardisation = pd.read_csv(STANDARDIZATION_CSV_PATH, na_filter=False, index_col=False)
+            # get the values of the dict
+            values = df_standardisation[df_standardisation["approval"] == grade]["mention"].tolist()
+            # unique only
+            return list(dict.fromkeys(values))
 
     @cached_property
     def grades(self):
@@ -60,7 +71,7 @@ class AggregationMode(Enum):
         """
         if self == self.NO_AGGREGATION:
             raise ValueError("Aggregation mode has no mapping")
-        elif self == self.FOUR_MENTIONS:
+        elif self in (self.FOUR_MENTIONS, self.APPROVAL):
             map = self.map
             # get the values of the dict
             values = list(map.values())
@@ -76,6 +87,8 @@ class AggregationMode(Enum):
             raise ValueError("Aggregation mode has no mapping")
         elif self == self.FOUR_MENTIONS:
             return 4
+        elif self == self.APPROVAL:
+            return 1
 
     @property
     def string_label(self):
