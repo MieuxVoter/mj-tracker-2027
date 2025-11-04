@@ -12,6 +12,7 @@ from typing import Optional, Dict, Any
 
 from ..constants import CANDIDATS
 
+SOURCE_URL = "https://raw.githubusercontent.com/MieuxVoter/presidentielle2027/refs/heads/main/presidentielle2027.json"
 
 class SMPData:
     """
@@ -51,10 +52,10 @@ class SMPData:
 
     def __init__(
         self,
-        source_file: Optional[str] = None,
         min_date: str = "2024-01-01",
         rolling_window: str = "10d",
         output_dir: Optional[Path] = None,
+        source_file: Optional[str] = None,
     ):
         """
         Initialize the SMPData loader.
@@ -73,11 +74,8 @@ class SMPData:
         """
         # Set default source
         if source_file is None:
-            source_file = (
-                "https://raw.githubusercontent.com/MieuxVoter/"
-                "presidentielle2027/refs/heads/main/presidentielle2027.json"
-            )
-        
+            source_file = SOURCE_URL
+
         self.source = source_file
         self.min_date = min_date
         self.rolling_window = rolling_window
@@ -222,6 +220,8 @@ class SMPData:
                 "intentions": {
                     "fin_enquete": df_temp.index.strftime("%Y-%m-%d").to_list(),
                     "valeur": df_temp.intentions.to_list(),
+                    "commanditaire": df_temp["commanditaire"].to_list(),
+                    "institut": df_temp["institut"].to_list(),
                 },
                 "derniers_sondages": [],
                 "couleur": CANDIDATS[candidat]["couleur"],

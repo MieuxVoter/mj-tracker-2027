@@ -96,7 +96,7 @@ class PollingOrganizations(Enum):
     ALL = "Opinion Way, ELABE, IFOP, IPSOS"
     # MIEUX_VOTER = "Opinion Way"
     ELABE = "ELABE"
-    # IFOP = "IFOP"
+    IFOP = "IFOP"
     IPSOS = "IPSOS"
 
 

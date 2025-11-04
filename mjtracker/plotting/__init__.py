@@ -15,3 +15,13 @@ __all__ = [
     "batch_plots_smp",
     "batch_figure",
 ]
+
+from .batch_plots import (
+    batch_approval_profile,
+    batch_ranking,
+    batch_time_merit_profile,
+    batch_ranked_time_merit_profile,
+    batch_time_merit_profile_all,
+    batch_time_approval_profiles,
+    batch_ranked_time_approval_profile,
+)
