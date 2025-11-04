@@ -22,10 +22,7 @@ from ..plotting.plots import ranking_plot, plot_time_merit_profile
 
 
 def comparison_ranking_plot(
-    df: DataFrame, 
-    smp_data: SMPData, 
-    source: str = None, 
-    on_rolling_data: bool = False
+    df: DataFrame, smp_data: SMPData, source: str = None, on_rolling_data: bool = False
 ) -> go.Figure:
     """
     Create a comparison plot of candidate rankings between MJ and SMP.
@@ -86,7 +83,7 @@ def comparison_ranking_plot(
     # Configure layout
     fig.update_yaxes(row=2, col=1, visible=False, autorange="reversed", title="Scrutin uninominal")
     fig.update_layout(width=1200, height=800)
-    
+
     source_str = f"sources jugement majoritaire: {source}"
     title = (
         "<b>Comparaison des classement des candidats à l'élection présidentielle 2027"
@@ -135,7 +132,7 @@ def plot_intention(
     color = colors[candidate]["couleur"] if colored else "#d3d3d3"
     opacity = 1 if colored else 0.3
     width = 3 if colored else 1
-    
+
     fig.add_trace(
         go.Scatter(
             x=df["fin_enquete"],
@@ -190,7 +187,7 @@ def plot_intention_data(
     colors = load_colors()
     color = colors[candidate]["couleur"] if colored else "#d3d3d3"
     opacity = 1 if colored else 0.3
-    
+
     fig.add_trace(
         go.Scatter(
             x=df["fin_enquete"],
@@ -244,7 +241,7 @@ def plot_comparison_intention(
     subplot_title_2 = "<b>Jugement majoritaire</b>"
     subplot_title_2 += f"<br><i>source: {source}</i>" if source is not None else ""
     subplot_title_2 += f", commanditaire: {sponsor}</i>" if sponsor is not None else ""
-    
+
     candidate = df["candidate"].unique()[0]  # MJ uses "candidate" column
 
     # Create figure with two subplots
@@ -269,7 +266,7 @@ def plot_comparison_intention(
         on_rolling_data=on_rolling_data,
         show_logo=False,
     )
-    
+
     # Add marker at last date for MJ
     fig.add_trace(
         go.Scatter(
@@ -282,11 +279,10 @@ def plot_comparison_intention(
         row=1,
         col=2,
     )
-    
+
     # Add candidate name annotation
     ext_candidate = _extended_name_annotations(
-        df, candidate=candidate, show_rank=True, show_best_grade=True, 
-        show_no_opinion=True, breaks_in_names=False
+        df, candidate=candidate, show_rank=True, show_best_grade=True, show_no_opinion=True, breaks_in_names=False
     )
     fig["layout"]["annotations"] += (
         dict(

@@ -215,12 +215,12 @@ class SurveysInterface:
 
         return final_intention_matrix
 
-    def filter(self):
+    def filter(self, rolling_period="14d"):
         """
-        Filter the dataframe according to the candidates and polling organization
+        Filter the dataframe according to the candidates and polling organization, smoothing around the time.
         """
         self._check_nb_grades()
-        # new cols to store the data (rolling mean, std)
+
         intentions_col = SurveyInterface(self.df[self.df["poll_id"] == self.surveys[0]])._intentions_colheaders
         intentions_col_std = [f"{col}_std" for col in intentions_col]
         intentions_col_roll = [f"{col}_roll" for col in intentions_col]
@@ -229,6 +229,7 @@ class SurveysInterface:
         self.df[intentions_col_roll] = None
         # self.df[sans_opinion_roll] = np.nan
         self.df = self.df.sort_values(by="end_date")
+
         # mean by candidates
         for c in self.df["candidate"].unique():
             df_temp = self.df[self.df["candidate"] == c]
@@ -237,16 +238,16 @@ class SurveysInterface:
 
             # Resample("1d").mean() helps to handle multiple surveys on the same dates
             df_temp[intentions_col_roll] = (
-                df_temp[intentions_col].resample("1d").mean().rolling("14d", min_periods=1, center=True).mean()
+                df_temp[intentions_col].resample("1d").mean().rolling(rolling_period, min_periods=1, center=True).mean()
             )
             df_temp[intentions_col_std] = (
-                df_temp[intentions_col].resample("1d").mean().rolling("14d", min_periods=1, center=True).std()
+                df_temp[intentions_col].resample("1d").mean().rolling(rolling_period, min_periods=1, center=True).std()
             )
 
             if not df_temp[(df_temp[intentions_col_roll].sum(axis=1) - 100).round(3) != 0].empty:
                 raise RuntimeError("Rolling mean conducted to less than 100 sum of intentions of vote")
 
-            # refilling the original dataframe
+            # refilling/repopulate the original dataframe
             df_temp.index = self.df[self.df["candidate"] == c].index
             row_indexer = self.df[self.df["candidate"] == c].index
             for col, col_std in zip(intentions_col_roll, intentions_col_std):

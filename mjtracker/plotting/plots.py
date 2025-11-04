@@ -8,7 +8,13 @@ from pandas import DataFrame
 from ..core.smp_data import SMPData
 from ..utils.utils import get_intentions_colheaders, get_candidates, get_grades, rank2str
 from ..misc.enums import PollingOrganizations, AggregationMode
-from .plot_utils import _add_election_date, _generate_windows_size, _add_image_to_fig, load_colors, _extended_name_annotations
+from .plot_utils import (
+    _add_election_date,
+    _generate_windows_size,
+    _add_image_to_fig,
+    load_colors,
+    _extended_name_annotations,
+)
 
 
 def plot_merit_profiles(

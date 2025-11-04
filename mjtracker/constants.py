@@ -8,6 +8,7 @@ CANDIDATS = {
     "Anne Hidalgo": {"couleur": "#b339a4"},
     "Christiane Taubira": {"couleur": "#c7a71a"},
     "Eric Zemmour": {"couleur": "#010038"},
+    "Éric Zemmour": {"couleur": "#010038"},
     "Nathalie Arthaud": {"couleur": "#8f0007"},
     "Jean Lassalle": {"couleur": "#c96800"},
     "Philippe Poutou": {"couleur": "#82001a"},
@@ -81,6 +82,10 @@ CANDIDATS = {
     "Bruno Retailleau": {"couleur": "#0242e3"},  # Les Républicains
     # DL
     "David Lisnard": {"couleur": "#0242e3"},  # Les Républicains
+    # SK
+    "Sarah Knafo": {"couleur": "#010038"},
+    # Philippe de Villiers
+    "Philippe de Villiers": {"couleur": "#010038"},
 }
 
 
