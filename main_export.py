@@ -1,3 +1,8 @@
+"""
+Don't push changes unless you know what you're doing.
+Very much linked to the CI to export the data: .github/workflows/release.yml
+"""
+
 from pathlib import Path
 import tap
 from mjtracker.plotting.batch_plots import (
@@ -190,6 +195,6 @@ if __name__ == "__main__":
 
     args.dest.mkdir(exist_ok=True, parents=True)
 
-    # main_mj(args)
-    # main_approval(args)
+    main_mj(args)
+    main_approval(args)
     main_smp(args)
