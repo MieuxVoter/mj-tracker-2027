@@ -1,14 +1,8 @@
 from pathlib import Path
 import tap
-from mjtracker.batch_plots import (
-    batch_merit_profile,
-    batch_ranking,
-    batch_time_merit_profile,
-    batch_ranked_time_merit_profile,
-    batch_time_merit_profile_all,
-)
-from mjtracker.color_utils import get_grade_color_palette
-from mjtracker.plot_utils import load_colors
+
+from mjtracker.plotting.color_utils import get_grade_color_palette
+from mjtracker.plotting.plot_utils import load_colors
 
 # from mjtracker.smp_data import SMPData # not available yet.
 from mjtracker.misc.enums import AggregationMode, PollingOrganizations, UntilRound
@@ -28,8 +22,7 @@ class Arguments(tap.Tap):
     png: bool = False
     json: bool = True
     svg: bool = False
-    csv: Path = Path("../mj-database-2027/mj2027.csv")
-    # dest: Path = Path("../trackerapp/data/graphs/")
+    csv: str = "https://raw.githubusercontent.com/MieuxVoter/mj-database-2027/refs/heads/main/mj2027.csv"
     dest: Path = Path("jmtracker.fr/plotly-standalone/graphs/jm")
 
 
@@ -37,7 +30,7 @@ def main(args: Arguments):
     args.dest.mkdir(exist_ok=True, parents=True)
 
     # load from the database
-    si = SurveysInterface.load(
+    si = SurveysInterface.load_from_url(
         args.csv,
         polling_organization=PollingOrganizations.IPSOS,
     )
