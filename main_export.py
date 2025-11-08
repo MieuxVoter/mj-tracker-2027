@@ -109,7 +109,7 @@ def main_approval(args: Arguments):
 def main_smp(args: Arguments):
     """Generate SMP intention plots in dedicated /smp folder."""
     print("\n=== Generating SMP intention plots ===")
-    
+
     # Use the same pattern as main_mj and main_approval
     args = Arguments().parse_args(known_only=True)
     args.dest = args.dest / "smp"
