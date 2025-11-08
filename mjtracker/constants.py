@@ -17,6 +17,7 @@ CANDIDATS = {
     # --- Extended with new entries (in the order provided) ---
     # EP
     "Edouard Philippe": {"couleur": "#0095eb"},  # proche d'Emmanuel Macron (Horizons)
+    "Édouard Philippe": {"couleur": "#0095eb"},  # proche d'Emmanuel Macron (Horizons)
     # JB
     "Jordan Bardella": {"couleur": "#04006e"},  # Rassemblement National (aligné Marine Le Pen)
     # MLP (already above: "Marine Le Pen")

@@ -35,7 +35,7 @@ jobs:
       - name: Archive the generated files
         run: |
           cd output
-          zip -r ../data-export.zip mj approval
+          zip -r ../data-export.zip mj approval smp
           cd ..
         shell: bash -el {0}
 
@@ -45,6 +45,7 @@ jobs:
           cp output/approval/latest_survey_approval.csv ./ || true
           cp output/mj/latest_survey_mj_compact.json ./ || true
           cp output/mj/latest_survey_mj.csv ./ || true
+          cp output/smp/latest_survey_smp_compact.json ./ || true
         shell: bash -el {0}
 
       - name: Update the 'latest-data' Git Tag
@@ -65,6 +66,7 @@ jobs:
             latest_survey_approval.csv
             latest_survey_mj_compact.json
             latest_survey_mj.csv
+            latest_survey_smp_compact.json
           # This tells the action to update the release if it already exists
           allowUpdates: true
           # This tells the action to use the static tag we just pushed

@@ -1,16 +1,17 @@
+"""
+This script won't work.
+
+I have miscommitted changes in the repository.
+The plot_double_sided_sankey_bezier doesn't exist anymore.
+
+missing file: sandbox/bezier_utils.py with plot_double_sided_sankey_bezier function
+"""
+
 from pathlib import Path
 import tap
-from mjtracker.batch_plots import (
-    batch_merit_profile,
-    batch_ranking,
-    batch_time_merit_profile,
-    batch_ranked_time_merit_profile,
-    batch_time_merit_profile_all,
-)
-from mjtracker.color_utils import get_grade_color_palette
-from mjtracker.plot_utils import load_colors
 
-# from mjtracker.smp_data import SMPData # not available yet.
+from mjtracker.plotting.color_utils import get_grade_color_palette
+from mjtracker.plotting.plot_utils import load_colors
 from mjtracker.misc.enums import AggregationMode, PollingOrganizations, UntilRound
 from mjtracker import SurveysInterface
 

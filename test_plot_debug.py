@@ -16,13 +16,13 @@ print(f"\nNumber of traces in figure: {len(fig.data)}")
 trace_types = {}
 for i, trace in enumerate(fig.data):
     trace_type = type(trace).__name__
-    mode = getattr(trace, 'mode', 'N/A')
-    fill = getattr(trace, 'fill', 'N/A')
-    name = getattr(trace, 'name', 'N/A')
-    
+    mode = getattr(trace, "mode", "N/A")
+    fill = getattr(trace, "fill", "N/A")
+    name = getattr(trace, "name", "N/A")
+
     key = f"{trace_type}_{mode}_{fill}"
     trace_types[key] = trace_types.get(key, 0) + 1
-    
+
     if i < 5:  # Print first 5 traces for debugging
         print(f"Trace {i}: {trace_type}, mode={mode}, fill={fill}, name={name}")
 

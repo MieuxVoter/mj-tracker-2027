@@ -26,7 +26,7 @@ class Arguments(tap.Tap):
     png: bool = True
     json: bool = False
     svg: bool = False
-    csv: Path = Path("/home/ppuchaud/Documents/perso/mieux_voter/mj-database-2027/mj2027.csv")
+    csv: str = "https://raw.githubusercontent.com/MieuxVoter/mj-database-2027/refs/heads/main/mj2027.csv"
     dest: Path = Path("../trackerapp/data/graphs/mj")
 
 
@@ -35,7 +35,7 @@ def main(args: Arguments):
     aggregation_mode = AggregationMode.NO_AGGREGATION
 
     # load from the database
-    si = SurveysInterface.load(
+    si = SurveysInterface.load_from_url(
         args.csv,
         polling_organization=PollingOrganizations.IPSOS,
     )

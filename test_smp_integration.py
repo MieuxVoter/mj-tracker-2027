@@ -10,6 +10,7 @@ import sys
 print("Testing imports...")
 try:
     from mjtracker.core.smp_data import SMPData
+
     print("✓ SMPData imported successfully")
 except ImportError as e:
     print(f"✗ Failed to import SMPData: {e}")
@@ -17,6 +18,7 @@ except ImportError as e:
 
 try:
     from mjtracker import SurveysInterface
+
     print("✓ SurveysInterface imported successfully")
 except ImportError as e:
     print(f"✗ Failed to import SurveysInterface: {e}")
@@ -24,6 +26,7 @@ except ImportError as e:
 
 try:
     from mjtracker.plotting.batch_plots_smp import batch_comparison_ranking, batch_comparison_intention
+
     print("✓ batch_plots_smp functions imported successfully")
 except ImportError as e:
     print(f"✗ Failed to import batch_plots_smp: {e}")
@@ -31,15 +34,16 @@ except ImportError as e:
 
 try:
     from mjtracker.misc.enums import Candidacy, AggregationMode, PollingOrganizations, UntilRound
+
     print("✓ Enums imported successfully")
 except ImportError as e:
     print(f"✗ Failed to import enums: {e}")
     sys.exit(1)
 
 # Test SMPData loading
-print("\n" + "="*60)
+print("\n" + "=" * 60)
 print("Testing SMPData loading...")
-print("="*60)
+print("=" * 60)
 try:
     smp = SMPData()
     print(f"✓ SMPData initialized successfully")
@@ -49,13 +53,14 @@ try:
 except Exception as e:
     print(f"✗ Failed to load SMPData: {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
 
 # Test get_ranks
-print("\n" + "="*60)
+print("\n" + "=" * 60)
 print("Testing SMPData.get_ranks()...")
-print("="*60)
+print("=" * 60)
 try:
     df_ranks = smp.get_ranks()
     print(f"✓ get_ranks() returned DataFrame with {len(df_ranks)} rows")
@@ -65,13 +70,14 @@ try:
 except Exception as e:
     print(f"✗ Failed to call get_ranks(): {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
 
 # Test get_intentions
-print("\n" + "="*60)
+print("\n" + "=" * 60)
 print("Testing SMPData.get_intentions()...")
-print("="*60)
+print("=" * 60)
 try:
     df_intentions = smp.get_intentions()
     print(f"✓ get_intentions() returned DataFrame with {len(df_intentions)} rows")
@@ -81,13 +87,14 @@ try:
 except Exception as e:
     print(f"✗ Failed to call get_intentions(): {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
 
 # Test loading MJ surveys
-print("\n" + "="*60)
+print("\n" + "=" * 60)
 print("Testing MJ surveys loading...")
-print("="*60)
+print("=" * 60)
 try:
     csv_url = "https://raw.githubusercontent.com/MieuxVoter/mj-database-2027/refs/heads/main/mj2027.csv"
     si = SurveysInterface.load(
@@ -106,13 +113,14 @@ try:
 except Exception as e:
     print(f"✗ Failed to load MJ surveys: {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
 
 # Test batch_comparison_ranking (without saving files)
-print("\n" + "="*60)
+print("\n" + "=" * 60)
 print("Testing batch_comparison_ranking...")
-print("="*60)
+print("=" * 60)
 try:
     # Create a mock args object with minimal settings
     class MockArgs:
@@ -124,10 +132,10 @@ try:
         svg = False
         show = False
         dest = Path("output/test_smp")
-    
+
     args = MockArgs()
     args.dest.mkdir(exist_ok=True, parents=True)
-    
+
     # Test the function (it will try to generate plots but won't save anything due to our flags)
     # We just want to see if it runs without errors
     print("  Calling batch_comparison_ranking()...")
@@ -136,13 +144,14 @@ try:
 except Exception as e:
     print(f"✗ Failed to execute batch_comparison_ranking(): {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
 
 # Test batch_comparison_intention
-print("\n" + "="*60)
+print("\n" + "=" * 60)
 print("Testing batch_comparison_intention...")
-print("="*60)
+print("=" * 60)
 try:
     print("  Calling batch_comparison_intention()...")
     batch_comparison_intention(si, smp, args, aggregation_mode, polls=[PollingOrganizations.IPSOS])
@@ -150,13 +159,14 @@ try:
 except Exception as e:
     print(f"✗ Failed to execute batch_comparison_intention(): {e}")
     import traceback
+
     traceback.print_exc()
     sys.exit(1)
 
 # Final summary
-print("\n" + "="*60)
+print("\n" + "=" * 60)
 print("🎉 ALL INTEGRATION TESTS PASSED!")
-print("="*60)
+print("=" * 60)
 print("\nSummary:")
 print("✓ All imports working")
 print("✓ SMPData loads data correctly from GitHub")
