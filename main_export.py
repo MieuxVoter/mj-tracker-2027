@@ -109,13 +109,18 @@ def main_approval(args: Arguments):
 def main_smp(args: Arguments):
     """Generate SMP intention plots in dedicated /smp folder."""
     print("\n=== Generating SMP intention plots ===")
-
-    # Create SMP output directory
-    smp_dest = args.dest.parent / "smp"
-    smp_dest.mkdir(exist_ok=True, parents=True)
+    
+    # Use the same pattern as main_mj and main_approval
+    args = Arguments().parse_args(known_only=True)
+    args.dest = args.dest / "smp"
+    args.dest.mkdir(exist_ok=True, parents=True)
 
     # Load SMP data
     smp = SMPData()
+
+    # Export JSON compact optimisé
+    smp.save_aggregated_data(args.dest / "latest_survey_smp_compact.json")
+
     print(f"✓ SMPData loaded: {len(smp.df_raw)} records")
 
     # Generate aggregated intentions plot (like sandbox/plot_intentions_2027.py)
@@ -128,17 +133,17 @@ def main_smp(args: Arguments):
 
     # Export as HTML and PNG
     if args.html:
-        output_html = smp_dest / "all_candidates_2027.html"
+        output_html = args.dest / "all_candidates_2027.html"
         fig_all.write_html(str(output_html))
         print(f"  ✓ Saved: {output_html}")
 
     if args.png:
-        output_png = smp_dest / "all_candidates_2027.png"
+        output_png = args.dest / "all_candidates_2027.png"
         fig_all.write_image(str(output_png), width=1400, height=800, scale=2)
         print(f"  ✓ Saved: {output_png}")
 
     if args.svg:
-        output_svg = smp_dest / "all_candidates_2027.svg"
+        output_svg = args.dest / "all_candidates_2027.svg"
         fig_all.write_image(str(output_svg), width=1400, height=800)
         print(f"  ✓ Saved: {output_svg}")
 
@@ -146,7 +151,7 @@ def main_smp(args: Arguments):
         import json
         from plotly.io import write_json
 
-        output_json = smp_dest / "all_candidates_2027.json"
+        output_json = args.dest / "all_candidates_2027.json"
         write_json(fig_all, output_json)
         print(f"  ✓ Saved: {output_json}")
 
@@ -165,24 +170,24 @@ def main_smp(args: Arguments):
     fig_top = plot_aggregated_intentions(smp, candidates_to_highlight=top_candidates)
 
     if args.html:
-        output_html = smp_dest / "top_candidates_2027.html"
+        output_html = args.dest / "top_candidates_2027.html"
         fig_top.write_html(str(output_html))
         print(f"  ✓ Saved: {output_html}")
 
     if args.png:
-        output_png = smp_dest / "top_candidates_2027.png"
+        output_png = args.dest / "top_candidates_2027.png"
         fig_top.write_image(str(output_png), width=1400, height=800, scale=2)
         print(f"  ✓ Saved: {output_png}")
 
     if args.svg:
-        output_svg = smp_dest / "top_candidates_2027.svg"
+        output_svg = args.dest / "top_candidates_2027.svg"
         fig_top.write_image(str(output_svg), width=1400, height=800)
         print(f"  ✓ Saved: {output_svg}")
 
     if args.json:
         from plotly.io import write_json
 
-        output_json = smp_dest / "top_candidates_2027.json"
+        output_json = args.dest / "top_candidates_2027.json"
         write_json(fig_top, output_json)
         print(f"  ✓ Saved: {output_json}")
 
