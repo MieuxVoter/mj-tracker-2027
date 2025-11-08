@@ -354,8 +354,10 @@ def _add_candidate_annotation(
     ### BUT IT WORKS FOR NOW ############################
     if rank <= 2:
         y_right = 36 * (1 - 1 / 20 * (rank - 1))
+    elif rank == 3:
+        y_right = 18
     else:
-        y_right = 16 * (1 - 1 / 22 * (rank - 1))
+        y_right = 16 * (1 - 1 / 22 * (rank - 1 - 2))
 
     y_left = segment_df[col_intention].iloc[-1]
 
