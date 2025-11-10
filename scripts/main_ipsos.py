@@ -1,6 +1,6 @@
 from pathlib import Path
 import tap
-from mjtracker.batch_plots import (
+from mjtracker.plotting.batch_plots import (
     batch_merit_profile,
     batch_ranking,
     batch_time_merit_profile,
