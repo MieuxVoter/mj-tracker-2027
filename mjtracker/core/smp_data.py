@@ -109,7 +109,7 @@ class SMPData:
         if self.source.startswith("http"):
             import requests
 
-            response = requests.get(self.source)
+            response = requests.get(self.source, timeout=10)  # 10 second timeout
             response.raise_for_status()
             data = response.json()
         else:
