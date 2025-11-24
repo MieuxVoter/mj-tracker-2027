@@ -35,7 +35,7 @@ class SurveysInterface:
         if "github.com" in url and "/blob/" in url:
             url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
 
-        response = requests.get(url)
+        response = requests.get(url, timeout=10)  # 10 second timeout
         response.raise_for_status()
 
         return cls.load(
@@ -75,6 +75,9 @@ class SurveysInterface:
 
         if polling_organization != PollingOrganizations.ALL:
             df_surveys = df_surveys[df_surveys["institut"] == polling_organization.value]
+
+        # if candidates != None:
+        #     df_surveys = df_surveys[df_surveys["candidat"] == polling_organization.value]
 
         return cls(df=df_surveys)
 
