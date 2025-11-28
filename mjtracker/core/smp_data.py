@@ -119,6 +119,7 @@ class SMPData:
         # Flatten the JSON structure to DataFrame
         rows = []
         for poll in data:
+            print("poll", poll)
             poll_id = poll.get("poll_id", "")
             fin_enquete = poll.get("fin_enquete", "")
             debut_enquete = poll.get("debut_enquete", "")
