@@ -70,6 +70,6 @@ jobs:
           # This tells the action to update the release if it already exists
           allowUpdates: true
           # This tells the action to use the static tag we just pushed
-          tag: latest-data
+          tag: latest-data-v1.1
           # This ensures old versions of the asset are replaced
           replacesArtifacts: true
