@@ -23,7 +23,7 @@ def convert_dataframe_to_compact_json(df: pd.DataFrame, voting_method: str = "ap
             "generated_at": datetime.now().isoformat(),
             "source": "mj2027.csv",
             "voting_method": voting_method,
-            "version": "1.0",
+            "version": "1.1",
         }
     }
 
@@ -45,7 +45,9 @@ def convert_dataframe_to_compact_json(df: pd.DataFrame, voting_method: str = "ap
             "num_grades": int(row["nombre_mentions"]),
             "question": row["question"],
             "grades": grades,
+            "polls": df[df["poll_type_id"] == row["poll_type_id"]]["poll_id"].unique().tolist(),
         }
+
     output["poll_types"] = poll_types
 
     # Candidats (normalisé une seule fois)
@@ -61,7 +63,7 @@ def convert_dataframe_to_compact_json(df: pd.DataFrame, voting_method: str = "ap
     output["candidates"] = candidates
 
     # Sondages
-    polls = []
+    polls = {}
     for poll_id in df["poll_id"].unique():
         poll_data = df[df["poll_id"] == poll_id].iloc[0]
 
@@ -127,9 +129,11 @@ def convert_dataframe_to_compact_json(df: pd.DataFrame, voting_method: str = "ap
             "population": poll_data["population"],
             "results": results,
         }
-        polls.append(poll)
 
-    output["polls"] = sorted(polls, key=lambda x: x["field_dates"][1], reverse=True)
+        polls[poll_id] = poll
+
+    # output["polls"] = sorted(polls, key=lambda x: x["field_dates"][1], reverse=True)
+    output["polls"] = polls
 
     return output
 
