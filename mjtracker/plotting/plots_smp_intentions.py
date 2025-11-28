@@ -27,6 +27,54 @@ DEFAULT_ERROR_BAND_OPACITY = 0.2
 DEFAULT_RAW_MARKER_OPACITY = 0.6
 DEFAULT_GREYED_OPACITY = 0.3
 
+# Constants for recency-based transparency
+RECENCY_FULL_OPACITY_DAYS = 3  # Full opacity for data within 30 days
+RECENCY_MIN_OPACITY_DAYS = 20  # Minimum opacity for data older than 180 days
+RECENCY_MIN_OPACITY = 0.25  # Minimum opacity value
+
+
+def _calculate_recency_opacity(last_date: pd.Timestamp) -> float:
+    """
+    Calculate opacity based on how recent the last data point is.
+    
+    Uses a linear decay model:
+    - 0-30 days: Full opacity (1.0)
+    - 30-180 days: Linear decay from 1.0 to 0.3
+    - 180+ days: Minimum opacity (0.3)
+    
+    Parameters
+    ----------
+    last_date : pd.Timestamp
+        The date of the last data point for the candidate
+    
+    Returns
+    -------
+    float
+        Opacity value between 0.3 and 1.0
+    """
+    current_date = pd.Timestamp.now()
+    days_since_last = (current_date - last_date).days
+    
+    # Full opacity for recent data
+    if days_since_last <= RECENCY_FULL_OPACITY_DAYS:
+        return 1.0
+    
+    # Minimum opacity for very old data
+    if days_since_last >= RECENCY_MIN_OPACITY_DAYS:
+        return RECENCY_MIN_OPACITY
+    
+    # Linear interpolation between full and minimum opacity
+    opacity_range = 1.0 - RECENCY_MIN_OPACITY
+    days_range = RECENCY_MIN_OPACITY_DAYS - RECENCY_FULL_OPACITY_DAYS
+    days_past_threshold = days_since_last - RECENCY_FULL_OPACITY_DAYS
+    
+    opacity = 1.0 - (opacity_range * days_past_threshold / days_range)
+    
+    return opacity
+
+
+
+
 
 def rank2str(rank: int) -> str:
     """
@@ -214,18 +262,26 @@ def _add_segment_trace(
     color: str,
     width: float,
     colored: bool,
+    opacity: float,
     row: Optional[int],
     col: Optional[int],
 ) -> None:
     """Add main trace for a time segment."""
     mode = "lines"
 
+    # Convert color to RGBA with opacity
+    if colored:
+        rgb = px.colors.hex_to_rgb(color)
+        line_color = f"rgba({rgb[0]},{rgb[1]},{rgb[2]},{opacity})"
+    else:
+        line_color = None
+
     fig.add_trace(
         go.Scatter(
             x=segment_df["fin_enquete"],
             y=segment_df[col_intention],
             mode=mode,
-            line=dict(color=color, width=width) if colored else None,
+            line=dict(color=line_color, width=width) if colored else None,
             marker=dict(color=color, size=DEFAULT_MARKER_SIZE, opacity=0.8),
             name=candidate,
             showlegend=False,
@@ -236,6 +292,7 @@ def _add_segment_trace(
     )
 
 
+
 def _add_dotted_connection(
     fig: go.Figure,
     current_segment: pd.DataFrame,
@@ -243,16 +300,21 @@ def _add_dotted_connection(
     col_intention: str,
     color: str,
     width: float,
+    opacity: float,
     row: Optional[int],
     col: Optional[int],
 ) -> None:
     """Add dotted line connecting two segments across a gap."""
+    # Convert color to RGBA with opacity
+    rgb = px.colors.hex_to_rgb(color)
+    line_color = f"rgba({rgb[0]},{rgb[1]},{rgb[2]},{opacity})"
+    
     fig.add_trace(
         go.Scatter(
             x=[current_segment["fin_enquete"].iloc[-1], next_segment["fin_enquete"].iloc[0]],
             y=[current_segment[col_intention].iloc[-1], next_segment[col_intention].iloc[0]],
             mode="lines",
-            line=dict(color=color, width=width, dash="dot"),
+            line=dict(color=line_color, width=width, dash="dot"),
             hoverinfo="skip",
             showlegend=False,
             legendgroup=None,
@@ -260,6 +322,7 @@ def _add_dotted_connection(
         row=row,
         col=col,
     )
+
 
 
 def _add_rank_marker(
@@ -298,12 +361,15 @@ def _add_error_bands(
     fig: go.Figure,
     segments: List[pd.DataFrame],
     color: str,
+    opacity: float,
     row: Optional[int],
     col: Optional[int],
 ) -> None:
     """Add confidence interval bands for each segment."""
     rgb = px.colors.hex_to_rgb(color)
-    fill_color = f"rgba({rgb[0]},{rgb[1]},{rgb[2]},{DEFAULT_ERROR_BAND_OPACITY})"
+    # Multiply base error band opacity by recency-based opacity
+    fill_opacity = DEFAULT_ERROR_BAND_OPACITY * opacity
+    fill_color = f"rgba({rgb[0]},{rgb[1]},{rgb[2]},{fill_opacity})"
 
     for segment_df in segments:
         if len(segment_df) < 2:
@@ -336,6 +402,7 @@ def _add_candidate_annotation(
     candidate: str,
     col_intention: str,
     color: str,
+    opacity: float,
     show_rank: bool,
     rank: Optional[int] = None,
 ) -> None:
@@ -361,6 +428,10 @@ def _add_candidate_annotation(
 
     y_left = segment_df[col_intention].iloc[-1]
 
+    # Convert hex color to RGBA with opacity
+    rgb = px.colors.hex_to_rgb(color)
+    rgba_color = f"rgba({rgb[0]},{rgb[1]},{rgb[2]},{opacity})"
+
     fig.add_annotation(
         # x=pd.to_datetime(segment_df["fin_enquete"].iloc[-1]),
         # y=segment_df[col_intention].iloc[-1],
@@ -371,17 +442,17 @@ def _add_candidate_annotation(
         xshift=10,
         yanchor="middle",
         text=f"<b>{annotation_text}</b>",
-        font=dict(family="Arial", size=12, color=color),
+        font=dict(family="Arial", size=12, color=rgba_color),
         showarrow=False,
     )
 
-    # link btween point and annotation
+    # link between point and annotation
     fig.add_trace(
         go.Scatter(
             x=[pd.to_datetime(segment_df["fin_enquete"].iloc[-1]), datetime.datetime.now()],
             y=[y_left, y_right],
             mode="lines",
-            line=dict(color="black", width=0.5, dash="dot"),
+            line=dict(color=f"rgba(0,0,0,{opacity})", width=0.5, dash="dot"),
             hoverinfo="skip",
             showlegend=False,
             legendgroup=None,
@@ -414,6 +485,7 @@ def plot_intention(
     - Error bands for confidence intervals
     - Dotted connections between segments
     - Smart annotations with rank and percentage
+    - Recency-based transparency for old data
 
     Parameters
     ----------
@@ -445,21 +517,27 @@ def plot_intention(
 
     candidate = df["candidat"].unique()[0]
     color = _get_candidate_color(candidate, colored)
-    opacity = 1 if colored else DEFAULT_GREYED_OPACITY
     width = DEFAULT_LINE_WIDTH if colored else DEFAULT_GREYED_LINE_WIDTH
 
     df_aggregated = _aggregate_polls_by_date(df, col_intention)
     segments = _detect_time_segments(df_aggregated, max_gap_days)
 
+    # Calculate opacity based on recency of last data point
+    if segments and colored:
+        last_date = segments[-1]["fin_enquete"].iloc[-1]
+        opacity = _calculate_recency_opacity(last_date)
+    else:
+        opacity = DEFAULT_GREYED_OPACITY if not colored else 1.0
+
     for i, segment_df in enumerate(segments):
         if len(segment_df) >= 2 or (i == len(segments) - 1 and not segment_df.empty):
-            _add_segment_trace(fig, segment_df, candidate, col_intention, color, width, colored, row, col)
+            _add_segment_trace(fig, segment_df, candidate, col_intention, color, width, colored, opacity, row, col)
 
             if colored and _should_connect_segments(segments, i, connect_gap_days):
-                _add_dotted_connection(fig, segment_df, segments[i + 1], col_intention, color, width, row, col)
+                _add_dotted_connection(fig, segment_df, segments[i + 1], col_intention, color, width, opacity, row, col)
 
     if colored:
-        _add_error_bands(fig, segments, color, row, col)
+        _add_error_bands(fig, segments, color, opacity, row, col)
 
         if segments:
             _add_rank_marker(fig, segments[-1], candidate, col_intention, color, opacity, row, col)
@@ -469,6 +547,7 @@ def plot_intention(
                 candidate,
                 col_intention,
                 color,
+                opacity,
                 rank=annotation_rank,
                 show_rank=False,
             )
@@ -482,16 +561,21 @@ def _add_raw_data_line(
     candidate: str,
     col_intention: str,
     color: str,
+    opacity: float,
     row: Optional[int],
     col: Optional[int],
 ) -> None:
     """Add thin dotted line connecting raw data points within segment."""
+    # Convert color to RGBA with opacity
+    rgb = px.colors.hex_to_rgb(color)
+    line_color = f"rgba({rgb[0]},{rgb[1]},{rgb[2]},{opacity})"
+
     fig.add_trace(
         go.Scatter(
             x=segment_df["fin_enquete"],
             y=segment_df[col_intention],
             mode="lines",
-            line=dict(color=color, width=1, dash="dot"),
+            line=dict(color=line_color, width=1, dash="dot"),
             hoverinfo="skip",
             name=candidate,
             showlegend=False,
@@ -590,9 +674,16 @@ def plot_raw_data_lines(
 
     segments = _detect_time_segments(df_copy, max_gap_days)
 
+    # Calculate opacity based on recency of last data point
+    if segments and colored:
+        last_date = segments[-1]["fin_enquete"].iloc[-1]
+        recency_opacity = _calculate_recency_opacity(last_date)
+    else:
+        recency_opacity = DEFAULT_GREYED_OPACITY if not colored else 1.0
+
     for segment_df in segments:
         if len(segment_df) >= 2 and colored:
-            _add_raw_data_line(fig, segment_df, candidate, col_intention, color, row, col)
+            _add_raw_data_line(fig, segment_df, candidate, col_intention, color, recency_opacity, row, col)
 
     return fig
 
@@ -637,13 +728,20 @@ def plot_raw_data_markers(
     candidate = df["candidat"].unique()[0]
     colors = load_colors()
     color = colors.get(candidate, {}).get("couleur", "lightgray") if colored else "lightgray"
-    opacity = DEFAULT_RAW_MARKER_OPACITY if colored else DEFAULT_GREYED_OPACITY
 
     df_copy = df.copy()
     df_copy["fin_enquete"] = pd.to_datetime(df_copy["fin_enquete"])
     df_copy = df_copy.sort_values("fin_enquete")
 
     segments = _detect_time_segments(df_copy, max_gap_days)
+
+    # Calculate opacity based on recency of last data point
+    if segments and colored:
+        last_date = segments[-1]["fin_enquete"].iloc[-1]
+        recency_opacity = _calculate_recency_opacity(last_date)
+        opacity = DEFAULT_RAW_MARKER_OPACITY * recency_opacity
+    else:
+        opacity = DEFAULT_GREYED_OPACITY if not colored else DEFAULT_RAW_MARKER_OPACITY
 
     for segment_df in segments:
         _add_raw_data_markers(fig, segment_df, candidate, col_intention, color, opacity, row, col)
@@ -702,9 +800,18 @@ def plot_intention_data(
 
     segments = _detect_time_segments(df_copy, max_gap_days)
 
+    # Calculate opacity based on recency of last data point
+    if segments and colored:
+        last_date = segments[-1]["fin_enquete"].iloc[-1]
+        recency_opacity = _calculate_recency_opacity(last_date)
+        opacity = DEFAULT_RAW_MARKER_OPACITY * recency_opacity
+    else:
+        recency_opacity = DEFAULT_GREYED_OPACITY if not colored else 1.0
+        opacity = DEFAULT_GREYED_OPACITY if not colored else DEFAULT_RAW_MARKER_OPACITY
+
     for segment_df in segments:
         if len(segment_df) >= 2 and colored:
-            _add_raw_data_line(fig, segment_df, candidate, col_intention, color, row, col)
+            _add_raw_data_line(fig, segment_df, candidate, col_intention, color, recency_opacity, row, col)
 
         _add_raw_data_markers(fig, segment_df, candidate, col_intention, color, opacity, row, col)
 
