@@ -1479,6 +1479,10 @@ def add_vertical_offset(df, candidate_column, date_column, value_column, offset=
             value = row[value_column]
             candidate = row[candidate_column]
 
+            # Skip if value is None or NaN
+            if value is None or (isinstance(value, float) and np.isnan(value)):
+                continue
+
             # Arrondir la valeur pour regrouper les positions proches
             rounded_value = round(value, 1)
 
