@@ -308,3 +308,33 @@ class SurveysInterface:
             for survey_id in self.surveys
         ]
         self.df = pd.concat([df for df in all_df], ignore_index=True)
+
+    def reorder_grades(self, new_order: list[str]):
+        """
+        Reorder grades across all surveys to change their position in ranking calculations.
+
+        This is useful for repositioning grades like "sans opinion" to be treated
+        as a middle grade rather than the worst grade.
+
+        Parameters
+        ----------
+        new_order : list[str]
+            List of grade names in the desired order (best to worst).
+            Must contain all current grades exactly once.
+
+        Example
+        -------
+        # Move "sans opinion" to the middle for ELABE polls
+        si.reorder_grades([
+            "une image très positive",
+            "une image plutôt positive",
+            "sans opinion",
+            "une image plutôt négative",
+            "une image très négative"
+        ])
+        """
+        all_df = [
+            SurveyInterface(self.df[self.df["poll_id"] == survey_id].copy()).reorder_grades(new_order).df
+            for survey_id in self.surveys
+        ]
+        self.df = pd.concat([df for df in all_df], ignore_index=True)

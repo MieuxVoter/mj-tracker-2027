@@ -172,15 +172,120 @@ class SurveyInterface:
     def total_intentions_without_no_opinion(self):
         return self.df[self._intentions_without_no_opinion_colheaders].sum(axis=1)
 
+    def reorder_grades(self, new_order: list[str]) -> "SurveyInterface":
+        """
+        Reorder grades in the scale to change their position in ranking calculations.
+
+        This is useful for repositioning grades like "sans opinion" to be treated
+        as a middle grade rather than the worst grade.
+
+        Parameters
+        ----------
+        new_order : list[str]
+            List of grade names in the desired order (best to worst).
+            Must contain all current grades exactly once.
+
+        Returns
+        -------
+        SurveyInterface
+            Self, for method chaining.
+
+        Example
+        -------
+        # Move "sans opinion" to the middle for ELABE polls
+        si.reorder_grades([
+            "une image très positive",
+            "une image plutôt positive",
+            "sans opinion",
+            "une image plutôt négative",
+            "une image très négative"
+        ])
+        """
+        current_grades = self.grades
+
+        # Validate new_order
+        if len(new_order) != len(current_grades):
+            raise ValueError(
+                f"new_order has {len(new_order)} grades but survey has {len(current_grades)} grades. "
+                f"Current grades: {current_grades}"
+            )
+
+        if set(new_order) != set(current_grades):
+            missing = set(current_grades) - set(new_order)
+            extra = set(new_order) - set(current_grades)
+            raise ValueError(
+                f"new_order must contain exactly the same grades as the survey. " f"Missing: {missing}, Extra: {extra}"
+            )
+
+        # Build mapping: old_position -> new_position
+        old_to_new = {}
+        for new_pos, grade in enumerate(new_order):
+            old_pos = current_grades.index(grade)
+            old_to_new[old_pos] = new_pos
+
+        # Create temporary storage for reordered data
+        n_grades = self.nb_grades
+
+        # Extract current intentions and grades
+        intention_data = {}
+        grade_data = {}
+        for i in range(n_grades):
+            old_col_intention = f"intention_mention_{i + 1}"
+            old_col_grade = f"mention{i + 1}"
+            intention_data[i] = self.df[old_col_intention].copy()
+            grade_data[i] = self.df[old_col_grade].copy()
+
+        # Apply new order
+        for old_pos, new_pos in old_to_new.items():
+            new_col_intention = f"intention_mention_{new_pos + 1}"
+            new_col_grade = f"mention{new_pos + 1}"
+            self.df[new_col_intention] = intention_data[old_pos]
+            self.df[new_col_grade] = grade_data[old_pos]
+
+        # Clear cached properties that depend on grades
+        cached_props = [
+            "grades",
+            "nb_grades",
+            "_intentions_colheaders",
+            "_grades_colheaders",
+            "_intentions_colheaders_idx",
+            "_grades_colheaders_idx",
+            "_no_opinion_colheader",
+            "_grades_no_opinion_colheaders",
+            "_grades_no_opinion_colheaders_idx",
+            "_intentions_without_no_opinion_colheaders",
+            "_intention_no_opinion_colheader",
+            "has_no_opinion_grade",
+            "is_no_opinion_last",
+            "total_intentions",
+            "total_intentions_no_opinion",
+            "total_intentions_without_no_opinion",
+            "intentions",
+            "candidates",
+        ]
+        for prop in cached_props:
+            if prop in self.__dict__:
+                del self.__dict__[prop]
+
+        return self
+
     def mj_data_to_dict(self):
         """Returns a sliced DataFrame containing only the columns relevant for Majority Judgment data."""
         colheaders = ["candidate"]
         colheaders.extend(self._intentions_colheaders)
         df_intentions = self.df[colheaders].copy()
-        return {
-            df_intentions["candidate"].iloc[i]: [df_intentions.iloc[i, j + 1] for j in range(self.nb_grades)]
-            for i in range(self.nb_candidates)
-        }
+
+        # Replace NaN with 0 for MJ calculation
+        for col in self._intentions_colheaders:
+            df_intentions[col] = df_intentions[col].fillna(0)
+
+        result = {}
+        for i in range(self.nb_candidates):
+            candidate = df_intentions["candidate"].iloc[i]
+            grades = [df_intentions.iloc[i, j + 1] for j in range(self.nb_grades)]
+            result[candidate] = grades
+
+        return result
 
     def to_no_opinion_survey(self):
         """

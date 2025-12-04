@@ -36,17 +36,17 @@ RECENCY_MIN_OPACITY = 0.25  # Minimum opacity value
 def _calculate_recency_opacity(last_date: pd.Timestamp) -> float:
     """
     Calculate opacity based on how recent the last data point is.
-    
+
     Uses a linear decay model:
     - 0-30 days: Full opacity (1.0)
     - 30-180 days: Linear decay from 1.0 to 0.3
     - 180+ days: Minimum opacity (0.3)
-    
+
     Parameters
     ----------
     last_date : pd.Timestamp
         The date of the last data point for the candidate
-    
+
     Returns
     -------
     float
@@ -54,26 +54,23 @@ def _calculate_recency_opacity(last_date: pd.Timestamp) -> float:
     """
     current_date = pd.Timestamp.now()
     days_since_last = (current_date - last_date).days
-    
+
     # Full opacity for recent data
     if days_since_last <= RECENCY_FULL_OPACITY_DAYS:
         return 1.0
-    
+
     # Minimum opacity for very old data
     if days_since_last >= RECENCY_MIN_OPACITY_DAYS:
         return RECENCY_MIN_OPACITY
-    
+
     # Linear interpolation between full and minimum opacity
     opacity_range = 1.0 - RECENCY_MIN_OPACITY
     days_range = RECENCY_MIN_OPACITY_DAYS - RECENCY_FULL_OPACITY_DAYS
     days_past_threshold = days_since_last - RECENCY_FULL_OPACITY_DAYS
-    
+
     opacity = 1.0 - (opacity_range * days_past_threshold / days_range)
-    
+
     return opacity
-
-
-
 
 
 def rank2str(rank: int) -> str:
@@ -292,7 +289,6 @@ def _add_segment_trace(
     )
 
 
-
 def _add_dotted_connection(
     fig: go.Figure,
     current_segment: pd.DataFrame,
@@ -308,7 +304,7 @@ def _add_dotted_connection(
     # Convert color to RGBA with opacity
     rgb = px.colors.hex_to_rgb(color)
     line_color = f"rgba({rgb[0]},{rgb[1]},{rgb[2]},{opacity})"
-    
+
     fig.add_trace(
         go.Scatter(
             x=[current_segment["fin_enquete"].iloc[-1], next_segment["fin_enquete"].iloc[0]],
@@ -322,7 +318,6 @@ def _add_dotted_connection(
         row=row,
         col=col,
     )
-
 
 
 def _add_rank_marker(
