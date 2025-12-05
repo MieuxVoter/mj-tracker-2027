@@ -18,7 +18,7 @@ from ..misc.enums import PollingOrganizations, AggregationMode
 from ..core.smp_data import SMPData
 
 
-def batch_merit_profile(si: SurveysInterface, args, auto_text: bool = False):
+def batch_merit_profile(si: SurveysInterface, args, auto_text: bool = True, show_no_opinion: bool = False):
     """
     Plot merit profiles for all polls
 
@@ -39,7 +39,7 @@ def batch_merit_profile(si: SurveysInterface, args, auto_text: bool = False):
             fig = pmp(
                 si=si_survey,
                 auto_text=auto_text,
-                show_no_opinion=True,
+                show_no_opinion=show_no_opinion,
             )
             filename = f"{survey_id}"
             print(filename)
@@ -78,6 +78,9 @@ def batch_ranking(
     si: SurveysInterface, args, filtered: bool = False, show_grade_area: bool = True, voting_str_title: str = ""
 ):
     for poll in PollingOrganizations:
+        if poll == PollingOrganizations.ALL and not si.is_aggregated:
+            continue
+
         si_poll = si.select_polling_organization(poll)
         if si_poll.df.empty:
             continue

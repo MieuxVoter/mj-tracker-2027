@@ -223,7 +223,7 @@ def main(args: Arguments):
     si_mj = main_mj(args)
 
     # Run Approval analysis
-    si_approval = main_approval(args)
+    # si_approval = main_approval(args)
 
     print("\n" + "=" * 60)
     print("✓ ANALYSE COMPLETE")
