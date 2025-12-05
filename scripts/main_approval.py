@@ -49,7 +49,7 @@ def main(args: Arguments):
         si.filter()
 
     # Apply the Majority Judgement rule
-    si.apply_approval(up_to="plutôt satisfait")
+    si.apply_approval()
 
     # # generate all the graphs
     batch_approval_profile(si, args, auto_text=True)

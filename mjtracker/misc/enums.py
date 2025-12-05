@@ -111,6 +111,28 @@ class PollingOrganizations(Enum):
     ELABE = "ELABE"
     IFOP = "IFOP"
     IPSOS = "IPSOS"
+    CLUSTER_17 = "Cluster 17"
+    ODOXA = "Odoxa"
+
+    @property
+    def approval(self):
+        """get the grade to which approval corresponds for each polling organization"""
+
+        poll2approval_grade = {
+            self.ELABE: "une image plutôt positive",
+            self.IFOP: "Une bonne opinion",
+            self.IPSOS: "plutôt satisfait",
+            # self.CLUSTER_17: "Assez bien",
+            # self.ODOXA: "Assez bien",
+        }
+        return poll2approval_grade.get(self, None)
+
+    @classmethod
+    def from_str(cls, name: str):
+        for member in cls:
+            if member.name == name or member.value == name:
+                return member
+        raise ValueError(f"{name} is not a valid PollingOrganizations")
 
 
 class UntilRound(Enum):

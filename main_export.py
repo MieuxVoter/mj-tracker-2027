@@ -48,7 +48,7 @@ def main_mj(args: Arguments):
     # load from the database
     si = SurveysInterface.load_from_url(
         args.csv,
-        polling_organization=PollingOrganizations.IPSOS,
+        polling_organization=POLL_ORGANIZATION,
     )
     # remove no opinion data
     si.to_no_opinion_surveys()
@@ -68,8 +68,8 @@ def main_mj(args: Arguments):
     # generate all the graphs
     batch_merit_profile(si, args, auto_text=False)
     batch_ranking(si, args)
-    batch_time_merit_profile(si, args, aggregation_mode, polls=PollingOrganizations.IPSOS)
-    batch_ranked_time_merit_profile(si, args, aggregation_mode, polls=PollingOrganizations.IPSOS)
+    batch_time_merit_profile(si, args, aggregation_mode, polls=POLL_ORGANIZATION)
+    batch_ranked_time_merit_profile(si, args, aggregation_mode, polls=POLL_ORGANIZATION)
 
 
 def main_approval(args: Arguments):
@@ -82,13 +82,13 @@ def main_approval(args: Arguments):
     # load from the database
     si = SurveysInterface.load(
         args.csv,
-        polling_organization=PollingOrganizations.IPSOS,
+        polling_organization=POLL_ORGANIZATION,
     )
     # remove no opinion data
-    si.to_no_opinion_surveys()
+    # si.to_no_opinion_surveys()
 
     # Apply the Majority Judgement rule
-    si.apply_approval(up_to="plutôt satisfait")
+    si.apply_approval()
 
     # Export JSON standard
     si.df.to_json(args.dest / "latest_survey_approval.json", orient="records")
@@ -101,9 +101,9 @@ def main_approval(args: Arguments):
 
     # generate all the graphs
     batch_approval_profile(si, args, auto_text=True)
-    batch_time_approval_profiles(si, args, aggregation_mode, polls=PollingOrganizations.IPSOS)
+    batch_time_approval_profiles(si, args, aggregation_mode, polls=POLL_ORGANIZATION)
     batch_ranking(si, args, voting_str_title="à l'approbation", show_grade_area=False)
-    batch_ranked_time_approval_profile(si, args, aggregation_mode, polls=PollingOrganizations.IPSOS)
+    batch_ranked_time_approval_profile(si, args, aggregation_mode, polls=POLL_ORGANIZATION)
 
 
 def main_smp(args: Arguments):
@@ -197,7 +197,7 @@ def main_smp(args: Arguments):
 if __name__ == "__main__":
     args = Arguments().parse_args()
     print(args)
-
+    POLL_ORGANIZATION = PollingOrganizations.ALL
     args.dest.mkdir(exist_ok=True, parents=True)
 
     main_mj(args)
