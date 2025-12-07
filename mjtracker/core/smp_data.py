@@ -4,11 +4,12 @@ Supports JSON format from presidentielle2027.json.
 """
 
 import json
-import pandas as pd
+
 import datetime
-import warnings
 from pathlib import Path
 from typing import Optional, Dict, Any
+
+import pandas as pd
 
 from ..constants import CANDIDATS
 
@@ -168,49 +169,58 @@ class SMPData:
 
         # Create aggregated data structure
         dict_candidats = {}
-        derniere_intention = pd.DataFrame()
+
+        count = 0  # for debugging plots
 
         for candidat in CANDIDATS.keys():
+            print(f"Processing candidate: {candidat}")
+
             df_temp = df[df["candidat"] == candidat].copy()
 
+            count += 1  # for debugging plots
             if df_temp.empty:
                 continue
 
-            # Set index to datetime for rolling operations
+            df_temp_rolling, df_temp_rolling_std = weighted_resample_and_rolling(df_temp, window=self.rolling_window)
+
             df_temp.index = pd.to_datetime(df_temp["end_date"])
 
-            # Calculate rolling averages (no lookahead bias)
-            df_temp_rolling = df_temp[["intentions"]].rolling(self.rolling_window, min_periods=1).mean()
-
-            df_temp_rolling_std = df_temp[["intentions"]].rolling(self.rolling_window, min_periods=1).std()
-
-            # Fill NaN std with 0
-            df_temp_rolling_std = df_temp_rolling_std.fillna(0)
-
             # Calculate error margins (±1 std)
-            erreur_inf = (df_temp_rolling.intentions - df_temp_rolling_std.intentions).tolist()
-            erreur_sup = (df_temp_rolling.intentions + df_temp_rolling_std.intentions).tolist()
+            erreur_inf = (df_temp_rolling.values - df_temp_rolling_std.values).tolist()
+            erreur_sup = (df_temp_rolling.values + df_temp_rolling_std.values).tolist()
 
-            # Store last intention
-            if not df_temp_rolling.empty:
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    derniere_intention = pd.concat(
-                        [
-                            derniere_intention,
-                            pd.DataFrame(
-                                {"candidat": [candidat], "intentions": [df_temp_rolling.intentions.tolist()[-1]]}
-                            ),
-                        ],
-                        ignore_index=True,
-                    )
+            # plot the difference between df_temp_rolling and df_temp_rolling_old for debugging
+            # import matplotlib.pyplot as plt
+            #
+            # if count == 1:
+            #     plt.figure(figsize=(10, 5))
+            # plt.plot(df_temp.index, df_temp["intentions"], "o", label="Raw Intentions")
+            # plt.plot(df_temp_rolling.index, df_temp_rolling, "-o", label="New Rolling Mean", ms=1)
+            #
+            # # margins
+            # plt.fill_between(
+            #     df_temp_rolling.index,
+            #     erreur_inf,
+            #     erreur_sup,
+            #     color="blue",
+            #     alpha=0.2,
+            #     label="New Error Margin",
+            # )
+            #
+            # plt.title(f"Rolling Mean Comparison for {candidat}")
+            # plt.xlabel("Date")
+            # plt.ylabel("Intentions")
+            # plt.legend()
+            #
+            # if count == 4:
+            #     plt.show()
 
             # Build data structure for this candidate
             dict_candidats[candidat] = {
                 "intentions_moy_14d": {
                     "end_date": df_temp_rolling.index.strftime("%Y-%m-%d").to_list(),
-                    "valeur": df_temp_rolling.intentions.to_list(),
-                    "std": df_temp_rolling_std.intentions.to_list(),
+                    "valeur": df_temp_rolling.values.tolist(),
+                    "std": df_temp_rolling_std.values.tolist(),
                     "erreur_inf": erreur_inf,
                     "erreur_sup": erreur_sup,
                 },
@@ -399,3 +409,28 @@ class SMPData:
         df_smp_data["end_date"] = pd.to_datetime(df_smp_data["end_date"])
 
         return df_smp_data
+
+
+def weighted_resample_and_rolling(df_temp, window="14d"):
+    """
+    Strategy 2: Resample to daily to handle duplicates, drop empty days,
+    then apply time-aware rolling window.
+    """
+    # 1. Prepare index
+    df_temp = df_temp.copy()
+    df_temp.index = pd.to_datetime(df_temp["end_date"])
+
+    # 2. Resample to daily frequency (taking the mean of duplicates on the same day)
+    daily_df = df_temp[["intentions"]].resample("D").mean()
+
+    # 3. Remove days without data (as per Strategy 2 requirements)
+    daily_df = daily_df.dropna()
+
+    # 4. Calculate Rolling Stats using the time-aware window
+    # The window (e.g., "14d") will look back in time correctly even with gaps in the index
+    rolling_mean = daily_df["intentions"].rolling(window).mean()
+
+    # Calculate std and interpolate to fill NaNs caused by single-point windows
+    rolling_std = daily_df["intentions"].rolling(window).std().interpolate()
+
+    return rolling_mean, rolling_std
