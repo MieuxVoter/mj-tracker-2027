@@ -433,4 +433,7 @@ def weighted_resample_and_rolling(df_temp, window="14d"):
     # Calculate std and interpolate to fill NaNs caused by single-point windows
     rolling_std = daily_df["intentions"].rolling(window).std().interpolate()
 
+    # fill nan with 0 for initial periods where std cannot be computed
+    rolling_std = rolling_std.fillna(0)
+
     return rolling_mean, rolling_std
