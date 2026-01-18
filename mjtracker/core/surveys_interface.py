@@ -149,10 +149,18 @@ class SurveysInterface:
         df_filtered = self.df[self.df["candidate"] == candidate].copy()
         return SurveysInterface(df=df_filtered)
 
-    def to_no_opinion_surveys(self):
-        """Convert all surveys to surveys removing the no opinion grades, and renormalizing the other grades"""
+    def to_no_opinion_surveys(self, extra_grade_name: str = None):
+        """
+            Convert all surveys to surveys removing the no opinion grades, and renormalizing the other grades
+
+        Parameters
+        ----------
+        extra_grade_name : str
+            The name of the extra grade to be considered as a "no opinion" grade.
+            If None, only the standard "sans opinion" grade is considered.
+        """
         all_df = [
-            SurveyInterface(self.df[self.df["poll_id"] == survey_id].copy()).to_no_opinion_survey()
+            SurveyInterface(self.df[self.df["poll_id"] == survey_id].copy()).to_no_opinion_survey(extra_grade_name)
             for survey_id in self.surveys
         ]
         self.df = pd.concat([df for df in all_df], ignore_index=True)

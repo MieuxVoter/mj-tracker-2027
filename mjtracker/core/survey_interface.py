@@ -14,7 +14,6 @@ from ..utils.utils import check_sum_intentions
 from ..utils.interface_mj import interface_to_official_lib
 from ..libs.majority_judgment_2 import majority_judgment as mj
 
-
 # Get the path to the current script
 CURRENT_SCRIPT_PATH = Path(__file__).parent.parent
 STANDARDIZATION_CSV_PATH = CURRENT_SCRIPT_PATH / "standardisation.csv"
@@ -29,6 +28,7 @@ class SurveyInterface:
                 f"SurveyInterface only works with one survey" f"but {self.nb_surveys} surveys were provided."
             )
         self._sanity_check_on_intentions()
+        self.no_opinion_grades = NO_OPINION_GRADES
 
     def _sanity_check_on_intentions(self):
         cols = self._intentions_colheaders
@@ -134,7 +134,7 @@ class SurveyInterface:
         the_undecided_grades = []
         the_undecided_grade_col_idx = []
 
-        for no_opinion_grade in NO_OPINION_GRADES:
+        for no_opinion_grade in self.no_opinion_grades:
             bool_with_undecided = self.df[grade_colheaders].iloc[0, :].str.contains(no_opinion_grade)
             if bool_with_undecided.any():
                 the_undecided_grades.append(bool_with_undecided[bool_with_undecided].index)
@@ -287,61 +287,128 @@ class SurveyInterface:
 
         return result
 
-    def to_no_opinion_survey(self):
+    def to_no_opinion_survey(self, extra_grade_name: str = None) -> pd.DataFrame:
         """
-        This function will return a new SurveyInterface object with the no opinion grades removed.
+        This function will return a new DataFrame with the no opinion grades removed.
         Adjusting the percentages of the other grades to make the sum of each row equal to 100%.
+
+        Parameters
+        ----------
+        extra_grade_name : str
+            The name of the extra grade to be considered as a "no opinion" grade.
+            If None, only the standard "sans opinion" grade is considered.
+
+        Returns
+        -------
+        pd.DataFrame
+            A copy of the dataframe with no opinion grades removed and percentages adjusted.
         """
+        # Create a local copy of no_opinion_grades to avoid mutating instance state
+        local_no_opinion_grades = list(self.no_opinion_grades)
+        if extra_grade_name is not None:
+            local_no_opinion_grades.append(extra_grade_name)
+
         df_copy = self.df.copy()
-        the_undecided_grades, the_undecided_grade_col_idx = self._no_opinion_colheader
 
-        for grade in the_undecided_grades:
-            df_copy.loc[df_copy.index, grade] = "nan"
+        # Find all no opinion grade columns based on the local list
+        grade_colheaders = self._grades_colheaders
+        no_opinion_grade_names = []
+        no_opinion_grade_col_indices = []
 
-        # reduced the number of declared grades
-        index_no = df_copy.columns.get_loc("nombre_mentions")
-        df_copy.loc[df_copy.index, "nombre_mentions"] = int(self.df.iloc[0, index_no] - len(the_undecided_grades))
+        for no_opinion_grade in local_no_opinion_grades:
+            for i, grade_col in enumerate(grade_colheaders):
+                grade_value = self.df[grade_col].iloc[0]
+                if isinstance(grade_value, str) and no_opinion_grade in grade_value:
+                    no_opinion_grade_names.append(grade_col)
+                    no_opinion_grade_col_indices.append(i)
 
-        tot_undecided = self.total_intentions_no_opinion
-        tot_decided = self.total_intentions_without_no_opinion
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_no_opinion_indices = []
+        unique_no_opinion_names = []
+        for idx, name in zip(no_opinion_grade_col_indices, no_opinion_grade_names):
+            if idx not in seen:
+                seen.add(idx)
+                unique_no_opinion_indices.append(idx)
+                unique_no_opinion_names.append(name)
+        no_opinion_grade_col_indices = unique_no_opinion_indices
+        no_opinion_grade_names = unique_no_opinion_names
 
-        for decided_col in self._intentions_without_no_opinion_colheaders:
-            col_idx = df_copy.columns.get_loc(decided_col)
-            normalizing_coef = 1 + tot_undecided / tot_decided
-            df_copy.iloc[:, col_idx] = df_copy.iloc[:, col_idx] * normalizing_coef
+        if not no_opinion_grade_col_indices:
+            # No "no opinion" grades found, return unchanged copy
+            return df_copy
 
-        if (df_copy[self._intentions_without_no_opinion_colheaders].sum(axis=1).round(5) != 100).any():
+        # Compute intention column headers for no opinion and valid grades
+        no_opinion_intention_cols = [f"intention_mention_{i + 1}" for i in no_opinion_grade_col_indices]
+        valid_intention_cols = [
+            f"intention_mention_{i + 1}" for i in range(self.nb_grades) if i not in no_opinion_grade_col_indices
+        ]
+
+        # Calculate totals for normalization
+        tot_undecided = df_copy[no_opinion_intention_cols].sum(axis=1)
+        tot_decided = df_copy[valid_intention_cols].sum(axis=1)
+
+        # Normalize the valid intention columns to sum to 100%
+        # Handle division by zero: if tot_decided is 0, normalizing_coef would be inf
+        normalizing_coef = (tot_decided + tot_undecided) / tot_decided.replace(0, np.nan)
+        normalizing_coef = normalizing_coef.fillna(1.0)
+
+        for col in valid_intention_cols:
+            df_copy[col] = (df_copy[col] * normalizing_coef).astype(float)
+
+        # Verify the sum is now 100%
+        actual_sum = df_copy[valid_intention_cols].sum(axis=1).round(5)
+        if not (actual_sum == 100).all():
+            bad_rows = df_copy[actual_sum != 100]
             raise ValueError(
-                "Sum of intention mentions is not 100, but {df_copy[['intention_mention_1', 'intention_mention_2', 'intention_mention_4', 'intention_mention_5']].sum(axis=1).round(5)}"
+                f"Sum of intention mentions is not 100 after normalization. "
+                f"Got values: {actual_sum[actual_sum != 100].tolist()} "
+                f"for candidates: {bad_rows['candidate'].tolist() if 'candidate' in bad_rows.columns else 'unknown'}"
             )
 
-        # the no opinion col to zero and store it somwehere else
+        # Store the no opinion values in a dedicated column
         if "sans_opinion" not in df_copy.columns:
-            df_copy["sans_opinion"] = 0
-        df_copy["sans_opinion"] += df_copy[self._intention_no_opinion_colheader].sum(
-            axis=1
-        )  # adds up with the previous values
-        df_copy[self._intention_no_opinion_colheader] = 0
+            df_copy["sans_opinion"] = 0.0
+        df_copy["sans_opinion"] = df_copy["sans_opinion"].astype(float)
+        df_copy["sans_opinion"] += tot_undecided
 
-        # remove the no opinion grades from the dataframe
-        if self.has_no_opinion_grade and not self.is_no_opinion_last:
-            offset = len(self._intention_no_opinion_colheader)
+        # Zero out the no opinion intention columns
+        for col in no_opinion_intention_cols:
+            df_copy[col] = 0.0
 
-            intention_colheaders_idx = self._intentions_colheaders_idx
-            last_no_opinion_idx = list(self.df.columns).index(self._intention_no_opinion_colheader[-1])
-            idx_after_last_no_opinion = [i for i in intention_colheaders_idx if i > last_no_opinion_idx]
+        # Mark no opinion grade names as "nan"
+        for grade_col in no_opinion_grade_names:
+            df_copy[grade_col] = "nan"
 
-            for i in idx_after_last_no_opinion:
-                df_copy.iloc[:, i - offset] = df_copy.iloc[:, i]
-            df_copy.iloc[:, idx_after_last_no_opinion[-1]] = 0
+        # Update the number of declared grades
+        new_nb_grades = self.nb_grades - len(no_opinion_grade_col_indices)
+        df_copy["nombre_mentions"] = new_nb_grades
 
-            grade_colheaders_idx = self._grades_colheaders_idx
-            last_no_opinion_idx = self._grades_no_opinion_colheaders_idx[-1]
-            idx_after_last_no_opinion = [i for i in grade_colheaders_idx if i > last_no_opinion_idx]
+        # Compact the columns: shift valid grades to fill gaps left by no opinion grades
+        # This is necessary when no opinion grades are scattered (non-consecutive)
+        is_no_opinion_last = max(no_opinion_grade_col_indices) == self.nb_grades - 1 and len(
+            no_opinion_grade_col_indices
+        ) == len([i for i in no_opinion_grade_col_indices if i >= self.nb_grades - len(no_opinion_grade_col_indices)])
 
-            for i in idx_after_last_no_opinion:
-                df_copy.iloc[:, i - offset] = df_copy.iloc[:, i]
-            df_copy.iloc[:, idx_after_last_no_opinion[-1]] = 0
+        if not is_no_opinion_last:
+            # Get valid column indices (those NOT in no_opinion)
+            valid_grade_indices = [i for i in range(self.nb_grades) if i not in no_opinion_grade_col_indices]
+
+            # Compact intention columns
+            intention_values = [df_copy[f"intention_mention_{i + 1}"].copy() for i in valid_grade_indices]
+            for new_pos, values in enumerate(intention_values):
+                df_copy[f"intention_mention_{new_pos + 1}"] = values
+            # Zero out trailing intention columns
+            for i in range(len(valid_grade_indices), self.nb_grades):
+                df_copy[f"intention_mention_{i + 1}"] = 0.0
+
+            # Compact grade name columns
+            grade_values = [df_copy[f"mention{i + 1}"].copy() for i in valid_grade_indices]
+            for new_pos, values in enumerate(grade_values):
+                df_copy[f"mention{new_pos + 1}"] = values
+            # Set "nan" for trailing grade columns
+            for i in range(len(valid_grade_indices), self.nb_grades):
+                df_copy[f"mention{i + 1}"] = "nan"
 
         check_sum_intentions(df_copy)
         return df_copy

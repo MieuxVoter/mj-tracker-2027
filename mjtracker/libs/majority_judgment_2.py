@@ -6,6 +6,7 @@ Created on Sat Jan 15 23:34:39 2022
 @author: Rémy Poulain
 adapted by Pierre Puchaud 10 Fev 2022
 """
+
 from typing import Dict, List, Union
 
 import numpy as np

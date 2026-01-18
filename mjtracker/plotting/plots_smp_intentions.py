@@ -15,7 +15,6 @@ import plotly.express as px
 from ..plotting.plot_utils import load_colors
 from ..core.smp_data import SMPData
 
-
 # Constants for visual styling
 DEFAULT_MAX_GAP_DAYS = 60
 DEFAULT_CONNECT_GAP_DAYS = 150
