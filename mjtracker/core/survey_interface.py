@@ -14,7 +14,6 @@ from ..utils.utils import check_sum_intentions
 from ..utils.interface_mj import interface_to_official_lib
 from ..libs.majority_judgment_2 import majority_judgment as mj
 
-
 # Get the path to the current script
 CURRENT_SCRIPT_PATH = Path(__file__).parent.parent
 STANDARDIZATION_CSV_PATH = CURRENT_SCRIPT_PATH / "standardisation.csv"
