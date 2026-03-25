@@ -141,6 +141,7 @@ class SMPData:
                     "tour": tour,
                     "candidat": candidat_data.get("candidat", ""),
                     "intentions": candidat_data.get("intentions", None),
+                    "retrait_candidature": candidat_data.get("retrait_candidature", ""),
                 }
                 rows.append(row)
 
@@ -176,6 +177,11 @@ class SMPData:
             print(f"Processing candidate: {candidat}")
 
             df_temp = df[df["candidat"] == candidat].copy()
+
+            # Filter out withdrawn candidates
+            if not df_temp.empty and any(df_temp["retrait_candidature"] != ""):
+                print(f"  ! Candidate {candidat} has withdrawn. Skipping.")
+                continue
 
             count += 1  # for debugging plots
             if df_temp.empty:

@@ -7,6 +7,7 @@ from .core.smp_data import SMPData
 
 # Utilities
 from .utils.interface_mj import interface_to_official_lib
+from .plotting import batch_plots
 
 # Enums and constants
 from .misc.enums import AggregationMode, UntilRound, PollingOrganizations, Candidacy

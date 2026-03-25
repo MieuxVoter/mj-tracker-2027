@@ -16,8 +16,11 @@ from ..plotting.plot_utils import load_colors
 from ..core.smp_data import SMPData
 
 # Constants for visual styling
-DEFAULT_MAX_GAP_DAYS = 60
-DEFAULT_CONNECT_GAP_DAYS = 150
+# DEFAULT_MAX_GAP_DAYS = 60
+# DEFAULT_CONNECT_GAP_DAYS = 150
+DEFAULT_MAX_GAP_DAYS = 500
+DEFAULT_CONNECT_GAP_DAYS = 500
+
 DEFAULT_MARKER_SIZE = 6
 DEFAULT_RAW_MARKER_SIZE = 5
 DEFAULT_LINE_WIDTH = 1
@@ -143,6 +146,11 @@ def _extended_name_annotations(
 
     if annotations:
         text += " (" + ", ".join(annotations) + ")"
+
+    if "fin_enquete" in df.columns:
+        last_date = pd.to_datetime(df["fin_enquete"]).iloc[-1]
+        date_str = last_date.strftime("%d-%m-%y")
+        text += f" {date_str}"
 
     return text
 
