@@ -14,9 +14,9 @@ class Arguments(tap.Tap):
     ranked_time_merit_profile: bool = True
     comparison_intention: bool = True
     test: bool = False
-    show: bool = True
+    show: bool = False
     html: bool = True
-    png: bool = True
+    png: bool = False
     json: bool = False
     svg: bool = False
     csv: str = "https://raw.githubusercontent.com/MieuxVoter/mj-database-2027/refs/heads/main/mj2027.csv"
@@ -41,7 +41,8 @@ def main_smp(args: Arguments):
     # All candidates plot
     print("  Generating aggregated intentions (all candidates)...")
     fig_all = plot_aggregated_intentions(smp, candidates_to_highlight=None)
-    fig_all.show()
+    if args.show:
+        fig_all.show()
 
     # Export as HTML and PNG
     if args.html:

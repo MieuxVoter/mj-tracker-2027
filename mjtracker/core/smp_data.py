@@ -162,11 +162,15 @@ class SMPData:
         # Filter for first round only
         df = df[df["tour"] == "1er Tour"]
 
+        # Convert to datetime to avoid comparison errors with strings or NaNs
+        df["end_date"] = pd.to_datetime(df["end_date"], errors="coerce")
+        min_date_ts = pd.to_datetime(self.min_date)
+
         # Sort by end date
         df = df.sort_values(by="end_date")
 
         # Filter by minimum date
-        df = df[df["end_date"] >= self.min_date]
+        df = df[df["end_date"] >= min_date_ts]
 
         # Create aggregated data structure
         dict_candidats = {}
@@ -179,7 +183,13 @@ class SMPData:
             df_temp = df[df["candidat"] == candidat].copy()
 
             # Filter out withdrawn candidates
-            if not df_temp.empty and any(df_temp["retrait_candidature"] != ""):
+            withdrawn = False
+            if "retrait_candidature" in df_temp.columns:
+                for val in df_temp["retrait_candidature"].dropna():
+                    if str(val).strip() and str(val).strip().lower() not in ["nan", "none"]:
+                        withdrawn = True
+                        break
+            if withdrawn:
                 print(f"  ! Candidate {candidat} has withdrawn. Skipping.")
                 continue
 

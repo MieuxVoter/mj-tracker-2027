@@ -1,0 +1,66 @@
+name: Deploy SMP Graph to GitHub Pages
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/main_smp.py'
+      - 'mjtracker/**'
+      - 'website/**'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: "3.13"
+          environment-file: environment.yml
+          activate-environment: mjtracker-env
+          auto-activate-base: false
+
+      - name: Install module
+        shell: bash -el {0}
+        run: pip install -e .
+
+      - name: Generate SMP graph
+        shell: bash -el {0}
+        run: |
+          mkdir -p website/graphs
+          python scripts/main_smp.py --dest website/graphs
+
+      - name: Add .nojekyll
+        run: touch website/.nojekyll
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './website'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

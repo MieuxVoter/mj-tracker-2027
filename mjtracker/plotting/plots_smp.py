@@ -63,7 +63,9 @@ def comparison_ranking_plot(
 
     # Get SMP ranking data filtered by MJ date range
     df_smp = smp_data.get_ranks()
-    df_smp = df_smp[df_smp["end_date"] >= df["end_date"].min()]
+    min_date = df["end_date"].min()
+    if pd.notna(min_date):
+        df_smp = df_smp[df_smp["end_date"] >= min_date]
 
     # Plot SMP ranking (bottom subplot)
     fig = ranking_plot(
@@ -302,7 +304,9 @@ def plot_comparison_intention(
 
     # Get SMP ranking data filtered by MJ date range
     df_smp = smp_data.get_ranks()
-    df_smp = df_smp[df_smp["end_date"] >= df["end_date"].min()]
+    min_date = df["end_date"].min()
+    if pd.notna(min_date):
+        df_smp = df_smp[df_smp["end_date"] >= min_date]
 
     # Check if candidate exists in SMP data
     df_smp_candidate = df_smp[df_smp["candidat"] == candidate]
@@ -322,7 +326,8 @@ def plot_comparison_intention(
 
     # Add raw SMP data points for target candidate
     df_smp_data = smp_data.get_intentions()
-    df_smp_data = df_smp_data[df_smp_data["end_date"] >= df["end_date"].min()]
+    if pd.notna(min_date):
+        df_smp_data = df_smp_data[df_smp_data["end_date"] >= min_date]
     df_smp_data = df_smp_data[df_smp_data["candidat"] == candidate]
     fig = plot_intention_data(df_smp_data, col_intention="intentions", fig=fig, row=1, col=1, colored=True)
 
