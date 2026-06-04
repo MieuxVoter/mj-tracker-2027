@@ -16,10 +16,13 @@ from ..plotting.plot_utils import load_colors
 from ..core.smp_data import SMPData
 
 # Constants for visual styling
-# DEFAULT_MAX_GAP_DAYS = 60
-# DEFAULT_CONNECT_GAP_DAYS = 150
-DEFAULT_MAX_GAP_DAYS = 500
-DEFAULT_CONNECT_GAP_DAYS = 500
+# A run of polls closer together than MAX_GAP_DAYS forms one continuous (solid)
+# segment. Across a larger gap the solid line breaks; if the gap is still within
+# CONNECT_GAP_DAYS the two segments are joined by a dotted connector, otherwise
+# they are left fully disconnected. This prevents drawing a confident line through
+# months with no polling.
+DEFAULT_MAX_GAP_DAYS = 45
+DEFAULT_CONNECT_GAP_DAYS = 180
 
 DEFAULT_MARKER_SIZE = 6
 DEFAULT_RAW_MARKER_SIZE = 5
@@ -367,35 +370,55 @@ def _add_error_bands(
     row: Optional[int],
     col: Optional[int],
 ) -> None:
-    """Add confidence interval bands for each segment."""
+    """
+    Add two stacked uncertainty bands per segment.
+
+    - Outer (light) band: weighted between-poll dispersion (``erreur_*_spread``),
+      i.e. how much the pollsters disagree.
+    - Inner (darker) band: 95% confidence interval of the weighted estimate
+      (``erreur_*``), i.e. how precisely we know the mean.
+
+    A wide outer band with a narrow inner band means "pollsters disagree but each
+    is precise"; the reverse means "few / small polls".
+    """
     rgb = px.colors.hex_to_rgb(color)
-    # Multiply base error band opacity by recency-based opacity
-    fill_opacity = DEFAULT_ERROR_BAND_OPACITY * opacity
-    fill_color = f"rgba({rgb[0]},{rgb[1]},{rgb[2]},{fill_opacity})"
 
-    for segment_df in segments:
-        if len(segment_df) < 2:
-            continue
+    # (column_sup, column_inf, opacity_multiplier) for outer then inner band.
+    band_specs = [
+        ("erreur_sup_spread", "erreur_inf_spread", 0.5),
+        ("erreur_sup", "erreur_inf", 1.0),
+    ]
 
-        if "erreur_sup" not in segment_df.columns or "erreur_inf" not in segment_df.columns:
-            continue
+    for col_sup, col_inf, opacity_mult in band_specs:
+        fill_opacity = DEFAULT_ERROR_BAND_OPACITY * opacity * opacity_mult
+        fill_color = f"rgba({rgb[0]},{rgb[1]},{rgb[2]},{fill_opacity})"
 
-        x_dates = segment_df["fin_enquete"].tolist()
-        y_upper = segment_df["erreur_sup"].tolist()
-        y_lower = segment_df["erreur_inf"].tolist()
+        for segment_df in segments:
+            if len(segment_df) < 2:
+                continue
 
-        fig.add_scatter(
-            x=x_dates + x_dates[::-1],
-            y=y_upper + y_lower[::-1],
-            fill="toself",
-            fillcolor=fill_color,
-            line=dict(color="rgba(255,255,255,0)"),
-            hoverinfo="skip",
-            showlegend=False,
-            legendgroup=None,
-            row=row,
-            col=col,
-        )
+            if col_sup not in segment_df.columns or col_inf not in segment_df.columns:
+                continue
+
+            if segment_df[col_sup].isna().any() or segment_df[col_inf].isna().any():
+                continue
+
+            x_dates = segment_df["fin_enquete"].tolist()
+            y_upper = segment_df[col_sup].tolist()
+            y_lower = segment_df[col_inf].tolist()
+
+            fig.add_scatter(
+                x=x_dates + x_dates[::-1],
+                y=y_upper + y_lower[::-1],
+                fill="toself",
+                fillcolor=fill_color,
+                line=dict(color="rgba(255,255,255,0)"),
+                hoverinfo="skip",
+                showlegend=False,
+                legendgroup=None,
+                row=row,
+                col=col,
+            )
 
 
 def _add_candidate_annotation(

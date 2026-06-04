@@ -197,13 +197,19 @@ class SMPData:
             if df_temp.empty:
                 continue
 
-            df_temp_rolling, df_temp_rolling_std = weighted_resample_and_rolling(df_temp, window=self.rolling_window)
+            df_temp_rolling, df_temp_rolling_ci, df_temp_rolling_spread = weighted_resample_and_rolling(
+                df_temp, window=self.rolling_window
+            )
 
             df_temp.index = pd.to_datetime(df_temp["end_date"])
 
-            # Calculate error margins (±1 std)
-            erreur_inf = (df_temp_rolling.values - df_temp_rolling_std.values).tolist()
-            erreur_sup = (df_temp_rolling.values + df_temp_rolling_std.values).tolist()
+            # Inner band: 95% confidence interval of the estimate (sampling uncertainty)
+            erreur_inf = (df_temp_rolling.values - df_temp_rolling_ci.values).tolist()
+            erreur_sup = (df_temp_rolling.values + df_temp_rolling_ci.values).tolist()
+
+            # Outer band: weighted between-poll dispersion (how much pollsters disagree)
+            erreur_inf_spread = (df_temp_rolling.values - df_temp_rolling_spread.values).tolist()
+            erreur_sup_spread = (df_temp_rolling.values + df_temp_rolling_spread.values).tolist()
 
             # plot the difference between df_temp_rolling and df_temp_rolling_old for debugging
             # import matplotlib.pyplot as plt
@@ -236,9 +242,12 @@ class SMPData:
                 "intentions_moy_14d": {
                     "end_date": df_temp_rolling.index.strftime("%Y-%m-%d").to_list(),
                     "valeur": df_temp_rolling.values.tolist(),
-                    "std": df_temp_rolling_std.values.tolist(),
+                    "ci": df_temp_rolling_ci.values.tolist(),
+                    "std": df_temp_rolling_spread.values.tolist(),
                     "erreur_inf": erreur_inf,
                     "erreur_sup": erreur_sup,
+                    "erreur_inf_spread": erreur_inf_spread,
+                    "erreur_sup_spread": erreur_sup_spread,
                 },
                 "intentions": {
                     "fin_enquete": df_temp.index.strftime("%Y-%m-%d").to_list(),
@@ -318,16 +327,32 @@ class SMPData:
         data = self._read_aggregated_data()
 
         # Create dataframe from aggregated data
-        df_rank_smp = pd.DataFrame(columns=["candidat", "fin_enquete", "valeur", "rang", "erreur_sup", "erreur_inf"])
+        df_rank_smp = pd.DataFrame(
+            columns=[
+                "candidat",
+                "fin_enquete",
+                "valeur",
+                "rang",
+                "erreur_sup",
+                "erreur_inf",
+                "erreur_sup_spread",
+                "erreur_inf_spread",
+            ]
+        )
 
         for candidat, candidat_data in data.get("candidats", {}).items():
             dict_moy = candidat_data.get("intentions_moy_14d", {})
+            n_pts = len(dict_moy.get("end_date", []))
+            spread_sup = dict_moy.get("erreur_sup_spread", [None] * n_pts)
+            spread_inf = dict_moy.get("erreur_inf_spread", [None] * n_pts)
 
-            for d, v, sup, inf in zip(
+            for d, v, inf, sup, inf_s, sup_s in zip(
                 dict_moy.get("end_date", []),
                 dict_moy.get("valeur", []),
                 dict_moy.get("erreur_inf", []),
                 dict_moy.get("erreur_sup", []),
+                spread_inf,
+                spread_sup,
             ):
                 row_to_add = {
                     "candidat": candidat,
@@ -336,31 +361,18 @@ class SMPData:
                     "rang": None,
                     "erreur_sup": sup,
                     "erreur_inf": inf,
+                    "erreur_sup_spread": sup_s,
+                    "erreur_inf_spread": inf_s,
                 }
                 df_rank_smp = pd.concat([df_rank_smp, pd.DataFrame([row_to_add])], ignore_index=True)
 
-        # Fill dates without values for some candidates (interpolation)
-        for c in df_rank_smp["candidat"].unique():
-            temp_df = df_rank_smp[df_rank_smp["candidat"] == c]
-            date_min = temp_df["fin_enquete"].min()
-            date_max = temp_df["fin_enquete"].max()
-
-            for d in df_rank_smp["fin_enquete"].unique():
-                if (d > date_min) and (d < date_max) and temp_df[temp_df["fin_enquete"] == d].empty:
-                    idx = temp_df["fin_enquete"].searchsorted(d)
-                    if idx > 0:
-                        v = temp_df["valeur"].iloc[idx - 1]
-                        sup = temp_df["erreur_sup"].iloc[idx - 1]
-                        inf = temp_df["erreur_inf"].iloc[idx - 1]
-                        row_to_add = {
-                            "candidat": c,
-                            "fin_enquete": d,
-                            "valeur": v,
-                            "rang": None,
-                            "erreur_sup": sup,
-                            "erreur_inf": inf,
-                        }
-                        df_rank_smp = pd.concat([df_rank_smp, pd.DataFrame([row_to_add])], ignore_index=True)
+        # NOTE: We intentionally do NOT forward-fill missing dates here. A previous
+        # version stamped each candidate's last known value across every date where
+        # *any other* candidate had a poll (a zero-order hold). That fabricated long
+        # flat plateaus — e.g. a single Ruffin poll drawn as a constant line for two
+        # months — implying support was *known* and *unchanged* when it was simply
+        # unmeasured. Gaps are now left empty and handled at plot time by segment /
+        # gap detection (see DEFAULT_MAX_GAP_DAYS in plots_smp_intentions).
 
         # Remove duplicates (keep last entry per candidate per date)
         df_rank_smp = df_rank_smp.sort_values(by=["fin_enquete", "candidat"])
@@ -427,29 +439,68 @@ class SMPData:
         return df_smp_data
 
 
-def weighted_resample_and_rolling(df_temp, window="14d"):
+def weighted_resample_and_rolling(df_temp, window="14d", default_sample=1000):
     """
-    Strategy 2: Resample to daily to handle duplicates, drop empty days,
-    then apply time-aware rolling window.
+    Inverse-variance weighted, time-aware rolling aggregation of poll intentions.
+
+    Each poll ``i`` reports an intention ``p_i`` (in %) measured on a sample of
+    size ``n_i``. The binomial sampling variance of that estimate is
+    ``var_i = p_i (1 - p_i) / n_i``. Combining polls in a trailing time ``window``
+    with inverse-variance weights ``w_i = 1 / var_i`` yields the minimum-variance
+    unbiased linear estimate of the underlying support, and its standard error has
+    a closed form. Estimates are produced *at the actual poll dates* and connected
+    with straight segments at plot time, which avoids the S-shaped "plateau" bias a
+    daily Gaussian-kernel smoother introduces around sparse polls and cluster edges.
+
+    Parameters
+    ----------
+    df_temp : pd.DataFrame
+        Rows for a single candidate, with ``end_date``, ``intentions`` (%), and
+        ``echantillon`` (sample size) columns.
+    window : str, default="14d"
+        Trailing time window (pandas offset string).
+    default_sample : int, default=1000
+        Sample size assumed when ``echantillon`` is missing.
+
+    Returns
+    -------
+    mean : pd.Series
+        Inverse-variance weighted rolling mean (%), indexed by date.
+    ci : pd.Series
+        95% half-width of the *estimate* (sampling uncertainty, %). Never
+        collapses to zero: a lone small poll still carries its own sampling error.
+    spread : pd.Series
+        Weighted between-poll standard deviation (%), i.e. how much the pollsters
+        in the window disagree. Goes to zero when a single poll is in the window.
     """
-    # 1. Prepare index
-    df_temp = df_temp.copy()
-    df_temp.index = pd.to_datetime(df_temp["end_date"])
+    df = df_temp.copy()
+    df.index = pd.to_datetime(df["end_date"])
+    df = df.sort_index()
 
-    # 2. Resample to daily frequency (taking the mean of duplicates on the same day)
-    daily_df = df_temp[["intentions"]].resample("D").mean()
+    p = pd.to_numeric(df["intentions"], errors="coerce") / 100.0
+    n = pd.to_numeric(df.get("echantillon"), errors="coerce").fillna(default_sample).clip(lower=1)
 
-    # 3. Remove days without data (as per Strategy 2 requirements)
-    daily_df = daily_df.dropna()
+    # Binomial sampling variance of each poll; floored to avoid division by zero
+    # at the p = 0 / p = 1 boundaries.
+    var_i = (p * (1.0 - p) / n).clip(lower=1e-9)
+    w = 1.0 / var_i
 
-    # 4. Calculate Rolling Stats using the time-aware window
-    # The window (e.g., "14d") will look back in time correctly even with gaps in the index
-    rolling_mean = daily_df["intentions"].rolling(window).mean()
+    frame = pd.DataFrame({"w": w, "wp": w * p, "wp2": w * p * p}).dropna()
+    if frame.empty:
+        empty = pd.Series(dtype=float)
+        return empty, empty, empty
 
-    # Calculate std and interpolate to fill NaNs caused by single-point windows
-    rolling_std = daily_df["intentions"].rolling(window).std().interpolate()
+    roll = frame.rolling(window)
+    s_w = roll["w"].sum()
+    s_wp = roll["wp"].sum()
+    s_wp2 = roll["wp2"].sum()
 
-    # fill nan with 0 for initial periods where std cannot be computed
-    rolling_std = rolling_std.fillna(0)
+    mean = s_wp / s_w
+    # Standard error of the inverse-variance weighted mean: Var(mean) = 1 / sum(w).
+    ci = 1.96 * (1.0 / s_w) ** 0.5
+    # Weighted between-poll variance (dispersion of the poll cloud itself).
+    between_var = (s_wp2 / s_w - mean**2).clip(lower=0.0)
+    spread = between_var**0.5
 
-    return rolling_mean, rolling_std
+    # Convert back to percentage points.
+    return mean * 100.0, ci * 100.0, spread * 100.0
