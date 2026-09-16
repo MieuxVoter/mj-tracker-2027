@@ -3,24 +3,366 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mieux Voter - Intentions de vote SMP 2027</title>
+    <title>Mieux Voter - Intentions de vote 2027</title>
+    <meta name="description" content="Intentions de vote pour l'élection présidentielle 2027, agrégées à partir des sondages publiés.">
     <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            overflow: hidden;
-            font-family: Arial, sans-serif;
-            background-color: #f8f9fa;
+        :root {
+            color-scheme: light;
+            --surface: #fcfcfb;
+            --card: #ffffff;
+            --ink: #0b0b0b;
+            --ink-soft: #52514e;
+            --line: rgba(11, 11, 11, 0.12);
+            --accent: #2a78d6;
         }
-        iframe {
-            border: none;
-            width: 100%;
-            height: 100%;
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 20px 16px 40px;
+            background: var(--surface);
+            color: var(--ink);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        .wrap { max-width: 1240px; margin: 0 auto; }
+
+        h1 {
+            font-size: 20px;
+            line-height: 1.3;
+            margin: 0 0 4px;
+            letter-spacing: -0.01em;
+        }
+
+        .sub { color: var(--ink-soft); font-size: 13px; margin: 0 0 18px; }
+
+        .controls { margin-bottom: 14px; }
+
+        .controls + .controls { margin-top: -4px; }
+
+        .label {
+            display: block;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--ink-soft);
+            margin-bottom: 6px;
+        }
+
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        button {
+            /* 44px de haut : cible tactile confortable au doigt. */
+            min-height: 44px;
+            padding: 10px 16px;
+            border: 1px solid var(--line);
+            border-radius: 22px;
+            background: var(--card);
+            color: var(--ink);
+            font: inherit;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.12s, color 0.12s, border-color 0.12s;
+        }
+
+        button:hover { border-color: var(--accent); }
+
+        button[aria-pressed="true"] {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+            font-weight: 600;
+        }
+
+        button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+        .tabs button { border-radius: 10px; min-width: 120px; }
+
+        .chart-card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 6px;
+            overflow: hidden;
+        }
+
+        #chart { width: 100%; height: 620px; }
+
+        #status {
+            padding: 40px 16px;
+            text-align: center;
+            color: var(--ink-soft);
+            font-size: 14px;
+        }
+
+        footer {
+            margin-top: 18px;
+            font-size: 12px;
+            color: var(--ink-soft);
+            line-height: 1.6;
+        }
+
+        footer a { color: var(--ink-soft); }
+
+        @media (max-width: 700px) {
+            body { padding: 14px 12px 32px; }
+            h1 { font-size: 17px; }
+            button { padding: 10px 13px; font-size: 13px; }
+            .tabs button { min-width: 0; flex: 1; }
+            #chart { height: 72vh; min-height: 400px; }
         }
     </style>
 </head>
 <body>
-    <iframe src="graphs/smp/all_candidates_2027.html" title="Intentions de vote SMP 2027"></iframe>
+<div class="wrap">
+    <h1>Élection présidentielle 2027 — intentions de vote</h1>
+    <p class="sub" id="subtitle">Chargement…</p>
+
+    <div class="controls tabs">
+        <div class="row" id="tabs" role="group" aria-label="Tour"></div>
+    </div>
+
+    <div class="controls">
+        <span class="label" id="options-label">Méthode de lissage</span>
+        <div class="row" id="options" role="group" aria-labelledby="options-label"></div>
+    </div>
+
+    <div class="chart-card">
+        <div id="chart"></div>
+        <div id="status">Chargement du graphique…</div>
+    </div>
+
+    <footer>
+        Source des sondages :
+        <a href="https://github.com/MieuxVoter/presidentielle2027">github.com/MieuxVoter/presidentielle2027</a>.
+        Les courbes sont des estimations lissées, pas des prévisions ; les écarts faibles ne sont pas significatifs.
+        <noscript><br><strong>JavaScript est désactivé.</strong>
+            <a href="graphs/smp/all_candidates_2027.html">Voir le graphique statique</a>.
+        </noscript>
+    </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-basic-dist-min@3.1.0/plotly-basic.min.js"></script>
+<script>
+(function () {
+    "use strict";
+
+    var BASE = "graphs/smp/";
+    var MOBILE_WIDTH = 700;
+    // Au-delà, les courbes se chevauchent trop sur un écran de téléphone.
+    var MOBILE_CANDIDATES = 8;
+
+    var chart = document.getElementById("chart");
+    var status = document.getElementById("status");
+    var tabsRow = document.getElementById("tabs");
+    var optionsRow = document.getElementById("options");
+    var optionsLabel = document.getElementById("options-label");
+    var subtitle = document.getElementById("subtitle");
+
+    var manifest = null;
+    var cache = {};
+    var state = { round: "r1", option: null };
+    // Candidats déjà représentés dans la légende, pour n'y mettre qu'une entrée
+    // par candidat alors que sa courbe est découpée en plusieurs segments.
+    var seen = {};
+
+    function isMobile() {
+        return window.innerWidth <= MOBILE_WIDTH;
+    }
+
+    function setStatus(message) {
+        status.textContent = message || "";
+        status.style.display = message ? "block" : "none";
+    }
+
+    function makeButton(label, isActive, onClick) {
+        var button = document.createElement("button");
+        button.type = "button";
+        button.textContent = label;
+        button.setAttribute("aria-pressed", isActive ? "true" : "false");
+        button.addEventListener("click", onClick);
+        return button;
+    }
+
+    function optionsFor(round) {
+        if (round === "r1") {
+            return manifest.methodes.map(function (m) { return { id: m.id, label: m.label }; });
+        }
+        // Sur téléphone, « Le Pen vs Philippe » plutôt que les noms complets :
+        // six boutons pleine largeur repoussent sinon le graphique hors de l'écran.
+        return manifest.duels.map(function (d) {
+            return { id: d.id, label: (isMobile() && d.label_court) ? d.label_court : d.label };
+        });
+    }
+
+    function render() {
+        tabsRow.innerHTML = "";
+        [["r1", "1er tour"], ["r2", "2nd tour"]].forEach(function (entry) {
+            tabsRow.appendChild(makeButton(entry[1], state.round === entry[0], function () {
+                select(entry[0], null);
+            }));
+        });
+
+        optionsLabel.textContent = state.round === "r1" ? "Méthode de lissage" : "Hypothèse de second tour";
+
+        optionsRow.innerHTML = "";
+        optionsFor(state.round).forEach(function (option) {
+            optionsRow.appendChild(makeButton(option.label, state.option === option.id, function () {
+                select(state.round, option.id);
+            }));
+        });
+    }
+
+    /**
+     * Sur petit écran, la figure est retaillée : les étiquettes en marge droite
+     * sont calibrées pour 1400 px et deviennent illisibles, et vingt courbes ne
+     * tiennent pas. On garde les mieux placés et on les identifie par une légende.
+     */
+    function adaptToViewport(figure) {
+        var layout = JSON.parse(JSON.stringify(figure.layout || {}));
+        var data = figure.data;
+
+        if (!isMobile()) {
+            return { data: data, layout: layout };
+        }
+
+        // Seul le premier tour porte des étiquettes en marge droite, calibrées pour
+        // 1400 px. Le second tour n'a que le repère « aujourd'hui », qu'on garde.
+        if (state.round === "r1") {
+            layout.annotations = [];
+        }
+        layout.margin = { l: 44, r: 12, t: 84, b: 44 };
+        layout.title = { text: layout.title && layout.title.text
+            ? layout.title.text.split("<br>")[0]
+            : "", x: 0, xanchor: "left", font: { size: 14 } };
+        layout.legend = { orientation: "h", y: -0.16, x: 0, font: { size: 11 } };
+        layout.showlegend = true;
+
+        var keep = null;
+        if (state.round === "r1" && manifest.candidats) {
+            keep = {};
+            manifest.candidats.slice(0, MOBILE_CANDIDATES).forEach(function (c) {
+                keep[c.nom] = true;
+            });
+        }
+
+        data = data.map(function (trace) {
+            var meta = trace.meta || {};
+            var copy = Object.assign({}, trace);
+
+            if (meta.role === "label-link") {
+                copy.visible = false;
+            } else if (keep && meta.candidat && !keep[meta.candidat]) {
+                copy.visible = false;
+            } else if (meta.role === "curve" && state.round === "r1") {
+                // Une seule entrée de légende par candidat (la courbe est découpée
+                // en segments aux trous de sondage).
+                copy.showlegend = !seen[meta.candidat];
+                seen[meta.candidat] = true;
+            }
+
+            return copy;
+        });
+
+        return { data: data, layout: layout };
+    }
+
+    function draw(figure) {
+        seen = {};
+        var adapted = adaptToViewport(figure);
+        Plotly.newPlot(chart, adapted.data, adapted.layout, {
+            responsive: true,
+            displaylogo: false,
+            displayModeBar: false,
+            scrollZoom: false
+        });
+        setStatus("");
+    }
+
+    function load(round, option) {
+        var file = BASE + (round === "r1" ? "r1_" : "r2_") + option + ".json";
+
+        if (cache[file]) {
+            draw(cache[file]);
+            return Promise.resolve();
+        }
+
+        setStatus("Chargement du graphique…");
+        return fetch(file)
+            .then(function (response) {
+                if (!response.ok) { throw new Error(response.status + " sur " + file); }
+                return response.json();
+            })
+            .then(function (figure) {
+                cache[file] = figure;
+                draw(figure);
+            })
+            .catch(function (error) {
+                setStatus("Graphique indisponible (" + error.message + ").");
+            });
+    }
+
+    function select(round, option) {
+        var available = optionsFor(round);
+        var ids = available.map(function (o) { return o.id; });
+
+        state.round = round;
+        state.option = (option && ids.indexOf(option) !== -1) ? option : ids[0];
+
+        render();
+        if (state.option) {
+            window.history.replaceState(null, "", "#" + state.round + "/" + state.option);
+            load(state.round, state.option);
+        } else {
+            setStatus("Aucune donnée disponible pour ce tour.");
+        }
+    }
+
+    function fromHash() {
+        var parts = (window.location.hash || "").replace("#", "").split("/");
+        var round = (parts[0] === "r2") ? "r2" : "r1";
+        return { round: round, option: parts[1] || null };
+    }
+
+    // Le passage mobile/desktop change la mise en page de la figure, pas ses données.
+    var wasMobile = isMobile();
+    var resizeTimer = null;
+    window.addEventListener("resize", function () {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function () {
+            if (isMobile() !== wasMobile) {
+                wasMobile = isMobile();
+                render();  // les libellés des duels sont plus courts sur mobile
+                if (state.option) { load(state.round, state.option); }
+            }
+        }, 200);
+    });
+
+    fetch(BASE + "manifest.json")
+        .then(function (response) {
+            if (!response.ok) { throw new Error("manifeste introuvable"); }
+            return response.json();
+        })
+        .then(function (data) {
+            manifest = data;
+            subtitle.textContent =
+                "Agrégation des sondages publiés · dernier sondage le " + manifest.dernier_sondage +
+                " · mise à jour " + manifest.mise_a_jour;
+
+            var initial = fromHash();
+            var fallback = initial.round === "r1" ? manifest.methode_par_defaut : null;
+            select(initial.round, initial.option || fallback);
+        })
+        .catch(function (error) {
+            setStatus("Données indisponibles (" + error.message + ").");
+        });
+})();
+</script>
 </body>
 </html>

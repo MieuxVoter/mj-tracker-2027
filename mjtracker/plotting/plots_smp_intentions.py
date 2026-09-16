@@ -14,6 +14,7 @@ import plotly.express as px
 
 from ..plotting.plot_utils import load_colors
 from ..core.smp_data import SMPData
+from ..core.smoothing import METHOD_SUBTITLES
 
 # Constants for visual styling
 # A run of polls closer together than MAX_GAP_DAYS forms one continuous (solid)
@@ -292,7 +293,11 @@ def _add_segment_trace(
             marker=dict(color=color, size=DEFAULT_MARKER_SIZE, opacity=0.8),
             name=candidate,
             showlegend=False,
-            legendgroup=None,
+            legendgroup=candidate,
+            # Tag consumed by the website to find the curves without relying on
+            # trace indices (it swaps the right-margin labels for a legend on
+            # narrow screens).
+            meta=dict(role="curve", candidat=candidate),
         ),
         row=row,
         col=col,
@@ -309,6 +314,7 @@ def _add_dotted_connection(
     opacity: float,
     row: Optional[int],
     col: Optional[int],
+    candidate: str = "",
 ) -> None:
     """Add dotted line connecting two segments across a gap."""
     # Convert color to RGBA with opacity
@@ -324,6 +330,7 @@ def _add_dotted_connection(
             hoverinfo="skip",
             showlegend=False,
             legendgroup=None,
+            meta=dict(role="connector", candidat=candidate),
         ),
         row=row,
         col=col,
@@ -353,9 +360,10 @@ def _add_rank_marker(
             mode="markers",
             name=candidate,
             marker=dict(color=color, opacity=opacity, size=8),
-            legendgroup=None,
+            legendgroup=candidate,
             showlegend=False,
             text=[rank2str(rank)],
+            meta=dict(role="marker", candidat=candidate),
         ),
         row=row,
         col=col,
@@ -369,6 +377,7 @@ def _add_error_bands(
     opacity: float,
     row: Optional[int],
     col: Optional[int],
+    candidate: str = "",
 ) -> None:
     """
     Add two stacked uncertainty bands per segment.
@@ -416,6 +425,7 @@ def _add_error_bands(
                 hoverinfo="skip",
                 showlegend=False,
                 legendgroup=None,
+                meta=dict(role="band", candidat=candidate),
                 row=row,
                 col=col,
             )
@@ -481,6 +491,8 @@ def _add_candidate_annotation(
             hoverinfo="skip",
             showlegend=False,
             legendgroup=None,
+            # Hidden together with the right-margin labels on narrow screens.
+            meta=dict(role="label-link", candidat=candidate),
         )
     )
 
@@ -559,10 +571,12 @@ def plot_intention(
             _add_segment_trace(fig, segment_df, candidate, col_intention, color, width, colored, opacity, row, col)
 
             if colored and _should_connect_segments(segments, i, connect_gap_days):
-                _add_dotted_connection(fig, segment_df, segments[i + 1], col_intention, color, width, opacity, row, col)
+                _add_dotted_connection(
+                    fig, segment_df, segments[i + 1], col_intention, color, width, opacity, row, col, candidate
+                )
 
     if colored:
-        _add_error_bands(fig, segments, color, opacity, row, col)
+        _add_error_bands(fig, segments, color, opacity, row, col, candidate)
 
         if segments:
             _add_rank_marker(fig, segments[-1], candidate, col_intention, color, opacity, row, col)
@@ -604,7 +618,8 @@ def _add_raw_data_line(
             hoverinfo="skip",
             name=candidate,
             showlegend=False,
-            legendgroup=None,
+            legendgroup=candidate,
+            meta=dict(role="raw-line", candidat=candidate),
         ),
         row=row,
         col=col,
@@ -624,16 +639,17 @@ def _add_raw_data_markers(
     """Add scatter markers for raw poll data points."""
     # Build custom hover text with all available information
     hover_texts = []
-    for _, row in segment_df.iterrows():
+    # Loop variable deliberately not named `row`: that is the subplot-row parameter.
+    for _, poll in segment_df.iterrows():
         text_parts = [f"<b>{candidate}</b>"]
-        text_parts.append(f"Date: {pd.to_datetime(row['fin_enquete']).strftime('%Y-%m-%d')}")
-        text_parts.append(f"Intention: {row[col_intention]:.1f}%")
-        # print(row.columns)
-        if "institut" in row and pd.notna(row["institut"]):
-            text_parts.append(f"Institut: {row['institut']}")
+        text_parts.append(f"Date: {pd.to_datetime(poll['fin_enquete']).strftime('%Y-%m-%d')}")
+        text_parts.append(f"Intention: {poll[col_intention]:.1f}%")
 
-        if "commanditaire" in row and pd.notna(row["commanditaire"]):
-            text_parts.append(f"Commanditaire: {row['commanditaire']}")
+        if "institut" in poll and pd.notna(poll["institut"]):
+            text_parts.append(f"Institut: {poll['institut']}")
+
+        if "commanditaire" in poll and pd.notna(poll["commanditaire"]):
+            text_parts.append(f"Commanditaire: {poll['commanditaire']}")
 
         hover_texts.append("<br>".join(text_parts))
 
@@ -643,11 +659,12 @@ def _add_raw_data_markers(
             y=segment_df[col_intention],
             mode="markers",
             marker=dict(color=color, opacity=opacity, size=DEFAULT_RAW_MARKER_SIZE),
-            # hovertext=hover_texts,
+            hovertext=hover_texts,
             hoverinfo="text",
             name=candidate,
             showlegend=False,
-            legendgroup=None,
+            legendgroup=candidate,
+            meta=dict(role="raw", candidat=candidate),
         ),
     )
 
@@ -924,18 +941,21 @@ def _filter_by_date_range(
     return df[(df["fin_enquete"] >= date_range[0]) & (df["fin_enquete"] <= date_range[1])]
 
 
-def _configure_figure_layout(fig: go.Figure, max_value: float) -> go.Figure:
+def _configure_figure_layout(fig: go.Figure, max_value: float, method_subtitle: str) -> go.Figure:
     """Configure axes, title, and logo for the final figure."""
     fig.update_yaxes(title="Intention de vote (%)", range=[0, max(40, max_value + 5)])
     fig.update_xaxes(title="Date de fin d'enquête", type="date")
 
     title = "<b>Élection présidentielle 2027</b><br>Intentions de vote agrégées (tous scénarios confondus)<br>"
-    title += f"<sub>Source: github.com/MieuxVoter/presidentielle2027 | Moyenne mobile sur 14 jours</sub>"
+    title += f"<sub>Source: github.com/MieuxVoter/presidentielle2027 | {method_subtitle}</sub>"
 
     fig.update_layout(
         title=dict(text=title, x=0.5, xanchor="center"),
-        width=1400,
-        height=800,
+        # No fixed size: the figure is rendered inside a responsive container on
+        # the website, where Plotly's `responsive: true` only takes effect when
+        # width/height are unset.
+        width=None,
+        height=None,
         hovermode="closest",
         template="plotly_white",
         images=[
@@ -1027,7 +1047,9 @@ def plot_aggregated_intentions(
     for candidate in all_candidates:
         colored = _should_highlight_candidate(candidate, candidates_to_highlight)
         fig = _plot_candidate_curves(fig, candidate, df_ranks, colored)
-    fig = _configure_figure_layout(fig, df_ranks["valeur"].max())
+
+    method = getattr(smp_data, "method", "rolling")
+    fig = _configure_figure_layout(fig, df_ranks["valeur"].max(), METHOD_SUBTITLES.get(method, ""))
 
     # THIRD: vertical bar for today's date
     fig.add_trace(

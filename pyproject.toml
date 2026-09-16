@@ -21,6 +21,7 @@ build-backend = "poetry.core.masonry.api"
 python = "^3.13"
 
 # Updated to match the versions from your conda list
+numpy = "^2.0.0"
 pandas = "^2.3.0"
 plotly = "^6.3.0"
 seaborn = "^0.13.0"

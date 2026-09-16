@@ -147,3 +147,6 @@ intentionsCandidatsMoyenneMobile14Jours.json
 trackerapp/
 
 intentionsCandidatsMoyenneMobile14Jours_2027.json
+
+# Agrégats intermédiaires, un par méthode de lissage (regénérés par main_smp.py)
+intentionsCandidats_*_2027.json

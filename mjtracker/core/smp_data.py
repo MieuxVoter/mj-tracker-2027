@@ -12,8 +12,22 @@ from typing import Optional, Dict, Any
 import pandas as pd
 
 from ..constants import CANDIDATS
+from .smoothing import DEFAULT_METHOD, SMOOTHERS
 
 SOURCE_URL = "https://raw.githubusercontent.com/MieuxVoter/presidentielle2027/refs/heads/main/presidentielle2027.json"
+
+
+def has_withdrawn(df: pd.DataFrame) -> bool:
+    """True if any row marks the candidate as having withdrawn their candidacy."""
+    if "retrait_candidature" not in df.columns:
+        return False
+
+    for value in df["retrait_candidature"].dropna():
+        text = str(value).strip()
+        if text and text.lower() not in ("nan", "none"):
+            return True
+
+    return False
 
 
 class SMPData:
@@ -58,6 +72,7 @@ class SMPData:
         rolling_window: str = "14d",
         output_dir: Optional[Path] = None,
         source_file: Optional[str] = None,
+        method: str = DEFAULT_METHOD,
     ):
         """
         Initialize the SMPData loader.
@@ -73,19 +88,28 @@ class SMPData:
             Window size for rolling average calculation (pandas offset string).
         output_dir : Path, optional
             Directory where to save aggregated JSON. If None, uses parent directory.
+        method : str, default="kalman"
+            Smoothing method, a key of ``mjtracker.core.smoothing.SMOOTHERS``.
+            ``"rolling"`` reproduces the historical 14-day weighted moving average.
         """
         # Set default source
         if source_file is None:
             source_file = SOURCE_URL
 
+        if method not in SMOOTHERS:
+            raise ValueError(f"Unknown smoothing method {method!r}. Expected one of {list(SMOOTHERS)}.")
+
         self.source = source_file
         self.min_date = min_date
         self.rolling_window = rolling_window
+        self.method = method
 
         # Set output directory
         if output_dir is None:
             output_dir = Path(__file__).parent.parent.parent  # Project root
-        self.output_file = output_dir / "intentionsCandidatsMoyenneMobile14Jours_2027.json"
+        # The method is part of the filename: several methods coexist, they must
+        # not overwrite each other.
+        self.output_file = output_dir / f"intentionsCandidats_{method}_2027.json"
 
         print(f"Loading SMP data from {self.source}")
 
@@ -93,6 +117,7 @@ class SMPData:
         self.df_raw = self._load_data()
         self.df_treated = None
         self.aggregated_data = None
+        self.second_round_data = None
 
         # Process data
         self._treatement()
@@ -120,7 +145,6 @@ class SMPData:
         # Flatten the JSON structure to DataFrame
         rows = []
         for poll in data:
-            print("poll", poll)
             poll_id = poll.get("poll_id", "")
             fin_enquete = poll.get("fin_enquete", "")
             debut_enquete = poll.get("debut_enquete", "")
@@ -128,6 +152,9 @@ class SMPData:
             commanditaire = poll.get("commanditaire", "")
             echantillon = poll.get("echantillon", None)
             tour = poll.get("tour", "")
+            # Second-round key: one poll = one matchup, and this field is the only
+            # stable identifier of that matchup across institutes and dates.
+            hypothese = poll.get("hypothese", "")
 
             for candidat_data in poll.get("candidats", []):
                 row = {
@@ -139,13 +166,130 @@ class SMPData:
                     "commanditaire": commanditaire,
                     "echantillon": echantillon,
                     "tour": tour,
+                    "hypothese": hypothese,
                     "candidat": candidat_data.get("candidat", ""),
+                    "candidate_id": candidat_data.get("candidate_id", ""),
                     "intentions": candidat_data.get("intentions", None),
                     "retrait_candidature": candidat_data.get("retrait_candidature", ""),
                 }
                 rows.append(row)
 
         return pd.DataFrame(rows)
+
+    def _treatement_second_round(self) -> Dict[str, Any]:
+        """
+        Build one smoothed series per candidate **and per matchup**.
+
+        Second-round polls carry a ``hypothese`` field (``H2_1`` … ``H2_11``): one
+        poll is one head-to-head matchup, and that field is the only stable key for
+        it. Keying by candidate name alone would be wrong — Marine Le Pen appears in
+        six different matchups with different values on the same dates.
+
+        Withdrawal is deliberately **not** used to drop data here: it only flags the
+        matchup as no longer current. Dropping it would silently erase five of the
+        eleven matchups (every Bardella duel) along with their history.
+
+        Returns
+        -------
+        dict
+            ``{hypothese: {"label", "actif", "n_sondages", "derniere_date",
+            "candidats": {nom: {...}}}}``, sorted by most recent poll first.
+        """
+        df = self.df_raw.copy()
+        df = df[df["tour"] == "2nd Tour"]
+
+        df["end_date"] = pd.to_datetime(df["end_date"], errors="coerce")
+        df = df.dropna(subset=["end_date"])
+        df = df[df["end_date"] >= pd.to_datetime(self.min_date)]
+        df = df[df["hypothese"].astype(str).str.strip() != ""]
+        df = df.sort_values(by="end_date")
+
+        smoother, smoother_kwargs = self._smoother()
+        duels = {}
+
+        for hypothese, df_hypo in df.groupby("hypothese"):
+            noms = sorted(df_hypo["candidat"].unique())
+            if len(noms) != 2:
+                print(f"  ! Hypothèse {hypothese}: {len(noms)} candidats au lieu de 2. Ignorée.")
+                continue
+
+            anchor = df_hypo["end_date"].min()
+            candidats = {}
+            actif = True
+
+            for nom in noms:
+                df_temp = df_hypo[df_hypo["candidat"] == nom].copy()
+                if df_temp.empty:
+                    continue
+                if has_withdrawn(df_temp):
+                    actif = False
+
+                mean, ci, spread = smoother(df_temp, anchor=anchor, **smoother_kwargs)
+                if mean.empty:
+                    continue
+
+                df_temp.index = pd.to_datetime(df_temp["end_date"])
+                candidats[nom] = {
+                    "intentions_moy": {
+                        "end_date": mean.index.strftime("%Y-%m-%d").to_list(),
+                        "valeur": mean.values.tolist(),
+                        "erreur_inf": (mean.values - ci.values).tolist(),
+                        "erreur_sup": (mean.values + ci.values).tolist(),
+                        "erreur_inf_spread": (mean.values - spread.values).tolist(),
+                        "erreur_sup_spread": (mean.values + spread.values).tolist(),
+                    },
+                    "intentions": {
+                        "fin_enquete": df_temp.index.strftime("%Y-%m-%d").to_list(),
+                        "valeur": df_temp["intentions"].to_list(),
+                        "institut": df_temp["institut"].to_list(),
+                        "commanditaire": df_temp["commanditaire"].to_list(),
+                    },
+                    "couleur": CANDIDATS.get(nom, {}).get("couleur", "#808080"),
+                }
+
+            if len(candidats) != 2:
+                continue
+
+            duels[hypothese] = {
+                "label": " vs ".join(noms),
+                "actif": actif,
+                "n_sondages": int(df_hypo["poll_id"].nunique()),
+                "derniere_date": df_hypo["end_date"].max().strftime("%Y-%m-%d"),
+                "candidats": candidats,
+            }
+
+        # Le plus récemment sondé d'abord : c'est l'ordre des boutons sur le site.
+        return dict(sorted(duels.items(), key=lambda kv: kv[1]["derniere_date"], reverse=True))
+
+    def get_second_round(self, only_active: bool = True) -> Dict[str, Any]:
+        """
+        Second-round matchups, keyed by ``hypothese``.
+
+        Parameters
+        ----------
+        only_active : bool, default=True
+            Keep only matchups where neither candidate has withdrawn.
+        """
+        if self.second_round_data is None:
+            self.second_round_data = self._treatement_second_round()
+
+        if not only_active:
+            return self.second_round_data
+
+        return {k: v for k, v in self.second_round_data.items() if v["actif"]}
+
+    def _smoother(self):
+        """
+        Return the smoothing callable and the kwargs specific to it.
+
+        Only the historical rolling average takes a ``window``; the others are
+        parameterised by a bandwidth carried by their own defaults. Building the
+        kwargs explicitly here avoids giving every smoother a ``**kwargs`` that
+        would silently swallow typos.
+        """
+        smoother = SMOOTHERS[self.method][1]
+        kwargs = {"window": self.rolling_window} if self.method == "rolling" else {}
+        return smoother, kwargs
 
     def _treatement(self):
         """
@@ -177,19 +321,17 @@ class SMPData:
 
         count = 0  # for debugging plots
 
-        for candidat in CANDIDATS.keys():
-            print(f"Processing candidate: {candidat}")
+        # Common origin for the evaluation grids: every candidate is estimated on
+        # the same dates, otherwise the per-date ranking computed downstream would
+        # compare candidates that were never measured together.
+        anchor = df["end_date"].min()
+        smoother, smoother_kwargs = self._smoother()
 
+        for candidat in CANDIDATS.keys():
             df_temp = df[df["candidat"] == candidat].copy()
 
             # Filter out withdrawn candidates
-            withdrawn = False
-            if "retrait_candidature" in df_temp.columns:
-                for val in df_temp["retrait_candidature"].dropna():
-                    if str(val).strip() and str(val).strip().lower() not in ["nan", "none"]:
-                        withdrawn = True
-                        break
-            if withdrawn:
+            if has_withdrawn(df_temp):
                 print(f"  ! Candidate {candidat} has withdrawn. Skipping.")
                 continue
 
@@ -197,9 +339,11 @@ class SMPData:
             if df_temp.empty:
                 continue
 
-            df_temp_rolling, df_temp_rolling_ci, df_temp_rolling_spread = weighted_resample_and_rolling(
-                df_temp, window=self.rolling_window
+            df_temp_rolling, df_temp_rolling_ci, df_temp_rolling_spread = smoother(
+                df_temp, anchor=anchor, **smoother_kwargs
             )
+            if df_temp_rolling.empty:
+                continue
 
             df_temp.index = pd.to_datetime(df_temp["end_date"])
 
@@ -263,8 +407,11 @@ class SMPData:
         self.aggregated_data = {
             "dernier_sondage": df["fin_enquete"].max(),
             "mise_a_jour": datetime.datetime.now().strftime(format="%Y-%m-%d %H:%M"),
+            "methode": self.method,
             "candidats": dict_candidats,
         }
+
+        self.second_round_data = self._treatement_second_round()
 
         # Save to JSON file
         self.save_aggregated_data()
