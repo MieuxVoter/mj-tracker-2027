@@ -142,6 +142,11 @@ class SMPData:
             with open(self.source, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
+        # The source moved from a bare list of polls to an envelope dict
+        # ({"source": ..., "hypotheses": ..., "polls": [...], ...}); unwrap it.
+        if isinstance(data, dict):
+            data = data["polls"]
+
         # Flatten the JSON structure to DataFrame
         rows = []
         for poll in data:
